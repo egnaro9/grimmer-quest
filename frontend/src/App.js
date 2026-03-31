@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, RotateCcw, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, ChevronRight, Zap } from "lucide-react";
+import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2 } from "lucide-react";
+import { soundManager } from "./utils/soundManager";
+import { useAdPlacement } from "./hooks/useAdPlacement";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -9,31 +11,75 @@ const API = `${BACKEND_URL}/api`;
 // Game constants
 const BOARD_SIZE = 8;
 const GEM_TYPES = ['red', 'blue', 'green', 'yellow', 'purple'];
+const SPECIAL_TYPES = ['striped_h', 'striped_v', 'wrapped', 'color_bomb'];
 const MOVES_PER_LEVEL = 30;
-const LEVEL_SCORE_TARGETS = [1000, 2000, 3500, 5000, 7500, 10000, 15000, 20000, 30000, 50000];
+const LEVEL_CONFIGS = [
+  { target: 1000, obstacles: [] },
+  { target: 2000, obstacles: [] },
+  { target: 3500, obstacles: ['ice'] },
+  { target: 5000, obstacles: ['ice'] },
+  { target: 7500, obstacles: ['ice', 'chain'] },
+  { target: 10000, obstacles: ['ice', 'chain'] },
+  { target: 15000, obstacles: ['ice', 'chain', 'blocker'] },
+  { target: 20000, obstacles: ['ice', 'chain', 'blocker'] },
+  { target: 30000, obstacles: ['ice', 'chain', 'blocker'] },
+  { target: 50000, obstacles: ['ice', 'chain', 'blocker'] },
+];
 
-// Create initial board
-const createBoard = () => {
+// Achievement definitions
+const ACHIEVEMENTS = [
+  { id: 'first_match', name: 'First Match', desc: 'Make your first match', icon: '⭐', threshold: 1 },
+  { id: 'combo_master', name: 'Combo Master', desc: 'Get a 5x combo', icon: '🔥', threshold: 5 },
+  { id: 'level_5', name: 'Rising Star', desc: 'Reach level 5', icon: '🌟', threshold: 5 },
+  { id: 'level_10', name: 'Gem Champion', desc: 'Reach level 10', icon: '👑', threshold: 10 },
+  { id: 'score_10k', name: 'High Scorer', desc: 'Score 10,000 in one game', icon: '💎', threshold: 10000 },
+  { id: 'score_50k', name: 'Legend', desc: 'Score 50,000 in one game', icon: '🏆', threshold: 50000 },
+  { id: 'daily_7', name: 'Dedicated', desc: '7-day login streak', icon: '📅', threshold: 7 },
+  { id: 'special_gem', name: 'Special Touch', desc: 'Create a special gem', icon: '✨', threshold: 1 },
+];
+
+// Create initial board with obstacles
+const createBoard = (level = 1) => {
+  const config = LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)];
   const board = [];
+  
   for (let row = 0; row < BOARD_SIZE; row++) {
     const rowArr = [];
     for (let col = 0; col < BOARD_SIZE; col++) {
-      rowArr.push({
+      const gem = {
         type: GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
         id: `${row}-${col}-${Date.now()}-${Math.random()}`,
         matched: false,
-        falling: false
-      });
+        falling: false,
+        special: null,
+        ice: false,
+        chain: 0,
+        blocker: false,
+      };
+      
+      // Add random obstacles based on level config
+      if (config.obstacles.includes('ice') && Math.random() < 0.15) {
+        gem.ice = true;
+      }
+      if (config.obstacles.includes('chain') && Math.random() < 0.1) {
+        gem.chain = Math.random() < 0.5 ? 1 : 2;
+      }
+      if (config.obstacles.includes('blocker') && Math.random() < 0.05) {
+        gem.blocker = true;
+        gem.type = 'blocker';
+      }
+      
+      rowArr.push(gem);
     }
     board.push(rowArr);
   }
-  // Remove initial matches
   return removeInitialMatches(board);
 };
 
 const removeInitialMatches = (board) => {
   for (let row = 0; row < BOARD_SIZE; row++) {
     for (let col = 0; col < BOARD_SIZE; col++) {
+      if (board[row][col].blocker) continue;
       while (hasMatchAt(board, row, col)) {
         const availableTypes = GEM_TYPES.filter(t => !wouldMatch(board, row, col, t));
         board[row][col].type = availableTypes.length > 0 
@@ -46,29 +92,37 @@ const removeInitialMatches = (board) => {
 };
 
 const wouldMatch = (board, row, col, type) => {
-  // Check horizontal
-  let count = 1;
-  if (col >= 2 && board[row][col-1]?.type === type && board[row][col-2]?.type === type) count = 3;
-  // Check vertical
-  if (row >= 2 && board[row-1]?.[col]?.type === type && board[row-2]?.[col]?.type === type) return true;
-  return count >= 3;
-};
-
-const hasMatchAt = (board, row, col) => {
-  const type = board[row][col].type;
-  // Check horizontal
   if (col >= 2 && board[row][col-1]?.type === type && board[row][col-2]?.type === type) return true;
-  // Check vertical
   if (row >= 2 && board[row-1]?.[col]?.type === type && board[row-2]?.[col]?.type === type) return true;
   return false;
 };
 
-// Gem component
+const hasMatchAt = (board, row, col) => {
+  const type = board[row][col].type;
+  if (type === 'blocker') return false;
+  if (col >= 2 && board[row][col-1]?.type === type && board[row][col-2]?.type === type) return true;
+  if (row >= 2 && board[row-1]?.[col]?.type === type && board[row-2]?.[col]?.type === type) return true;
+  return false;
+};
+
+// Gem component with special effects
 const Gem = ({ gem, row, col, selected, onClick, onDragStart, onDragEnd, onDragEnter }) => {
-  const gemClasses = `gem gem-${gem.type} w-full h-full flex items-center justify-center
+  if (gem.blocker) {
+    return (
+      <div 
+        data-testid={`gem-cell-${row}-${col}`}
+        className="w-full h-full flex items-center justify-center bg-slate-700 rounded-lg border-2 border-slate-600"
+      >
+        <Lock className="w-5 h-5 text-slate-500" />
+      </div>
+    );
+  }
+
+  const baseClasses = `gem gem-${gem.type} w-full h-full flex items-center justify-center relative
     ${selected ? 'selected' : ''} 
     ${gem.matched ? 'matched' : ''} 
-    ${gem.falling ? 'falling' : ''}`;
+    ${gem.falling ? 'falling' : ''}
+    ${gem.special ? 'special-' + gem.special : ''}`;
 
   const icons = {
     red: <div className="w-6 h-6 rotate-45 bg-white/30 rounded-sm" />,
@@ -78,72 +132,92 @@ const Gem = ({ gem, row, col, selected, onClick, onDragStart, onDragEnd, onDragE
     purple: <div className="w-6 h-6 bg-white/30" style={{ clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' }} />
   };
 
+  const specialIndicators = {
+    striped_h: <div className="absolute inset-x-1 top-1/2 h-1 bg-white/60 rounded" />,
+    striped_v: <div className="absolute inset-y-1 left-1/2 w-1 bg-white/60 rounded" />,
+    wrapped: <div className="absolute inset-2 border-2 border-white/60 rounded-full" />,
+    color_bomb: <Sparkles className="absolute w-4 h-4 text-white animate-pulse" />,
+  };
+
   return (
-    <div
-      data-testid={`gem-cell-${row}-${col}`}
-      className={gemClasses}
-      onClick={() => onClick(row, col)}
-      onMouseDown={() => onDragStart(row, col)}
-      onMouseUp={onDragEnd}
-      onMouseEnter={() => onDragEnter(row, col)}
-      onTouchStart={() => onDragStart(row, col)}
-      onTouchEnd={onDragEnd}
-    >
-      {icons[gem.type]}
+    <div className="relative w-full h-full">
+      {/* Ice overlay */}
+      {gem.ice && (
+        <div className="absolute inset-0 bg-cyan-200/40 rounded-lg border-2 border-cyan-300/60 z-10 flex items-center justify-center">
+          <Snowflake className="w-4 h-4 text-cyan-200/80" />
+        </div>
+      )}
+      
+      {/* Chain overlay */}
+      {gem.chain > 0 && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center">
+          <div className={`absolute inset-1 border-4 ${gem.chain === 2 ? 'border-amber-600' : 'border-amber-400'} rounded-lg opacity-80`} />
+          <Link2 className="w-4 h-4 text-amber-300" />
+        </div>
+      )}
+      
+      <div
+        data-testid={`gem-cell-${row}-${col}`}
+        className={baseClasses}
+        onClick={() => onClick(row, col)}
+        onMouseDown={() => onDragStart(row, col)}
+        onMouseUp={onDragEnd}
+        onMouseEnter={() => onDragEnter(row, col)}
+        onTouchStart={() => onDragStart(row, col)}
+        onTouchEnd={onDragEnd}
+      >
+        {icons[gem.type]}
+        {gem.special && specialIndicators[gem.special]}
+      </div>
     </div>
   );
 };
 
 // HUD Component
-const GameHUD = ({ lives, maxLives, nextLifeSeconds, coins, score, movesLeft, level, targetScore }) => {
+const GameHUD = ({ lives, maxLives, nextLifeSeconds, coins, score, movesLeft, level, targetScore, soundOn, onToggleSound }) => {
   const [timeDisplay, setTimeDisplay] = useState('');
 
   useEffect(() => {
-    if (nextLifeSeconds === null || nextLifeSeconds === undefined) {
+    if (nextLifeSeconds === null || nextLifeSeconds === undefined || lives >= maxLives) {
       setTimeDisplay('');
       return;
     }
     
+    let remaining = nextLifeSeconds;
     const interval = setInterval(() => {
-      const mins = Math.floor(nextLifeSeconds / 60);
-      const secs = nextLifeSeconds % 60;
+      remaining = Math.max(0, remaining - 1);
+      const mins = Math.floor(remaining / 60);
+      const secs = remaining % 60;
       setTimeDisplay(`${mins}:${secs.toString().padStart(2, '0')}`);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [nextLifeSeconds]);
+  }, [nextLifeSeconds, lives, maxLives]);
 
   return (
     <div className="glass-strong rounded-2xl p-4 mb-4">
       <div className="flex items-center justify-between flex-wrap gap-4">
-        {/* Lives */}
         <div className="flex items-center gap-2" data-testid="lives-display">
           <Heart className="w-6 h-6 heart fill-current" />
           <span className="font-bold text-white text-lg">{lives}/{maxLives}</span>
-          {timeDisplay && lives < maxLives && (
-            <span className="text-xs text-slate-400">+1 in {timeDisplay}</span>
-          )}
+          {timeDisplay && <span className="text-xs text-slate-400">+1 in {timeDisplay}</span>}
         </div>
 
-        {/* Coins */}
         <div className="flex items-center gap-2" data-testid="coins-display">
           <Coins className="w-6 h-6 coin" />
           <span className="font-bold text-white text-lg">{coins.toLocaleString()}</span>
         </div>
 
-        {/* Score */}
         <div className="score-display" data-testid="score-display">
           <div className="text-xs text-slate-400 uppercase tracking-wider">Score</div>
           <div className="text-2xl font-bold">{score.toLocaleString()}</div>
         </div>
 
-        {/* Level & Moves */}
         <div className="text-center">
           <div className="text-xs text-slate-400 uppercase tracking-wider">Level {level}</div>
           <div className="text-lg font-bold text-white">{movesLeft} moves</div>
         </div>
 
-        {/* Progress to target */}
         <div className="w-32">
           <div className="text-xs text-slate-400 mb-1">Target: {targetScore.toLocaleString()}</div>
           <div className="h-2 bg-black/40 rounded-full overflow-hidden">
@@ -153,6 +227,14 @@ const GameHUD = ({ lives, maxLives, nextLifeSeconds, coins, score, movesLeft, le
             />
           </div>
         </div>
+
+        <button 
+          onClick={onToggleSound}
+          className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+          data-testid="sound-toggle"
+        >
+          {soundOn ? <Volume2 className="w-5 h-5 text-white" /> : <VolumeX className="w-5 h-5 text-slate-400" />}
+        </button>
       </div>
     </div>
   );
@@ -194,18 +276,16 @@ const PowerUpsBar = ({ powerUps, onUsePowerUp, activePowerUp }) => {
 };
 
 // Main Menu
-const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, dailyRewardAvailable }) => {
+const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, onOpenAchievements, dailyRewardAvailable }) => {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
-      {/* Title */}
       <div className="text-center mb-8">
         <h1 className="font-heading text-6xl lg:text-7xl font-black text-white drop-shadow-lg mb-2">
-          GEM <span className="text-amber-400">CRUSH</span>
+          GLIMMER <span className="text-amber-400">QUEST</span>
         </h1>
-        <p className="text-slate-400 text-lg">Match 3 to crush!</p>
+        <p className="text-slate-400 text-lg">Match 3 to shine!</p>
       </div>
 
-      {/* Player info card */}
       <div className="glass-strong rounded-2xl p-6 mb-8 w-full max-w-sm">
         <div className="text-center mb-4">
           <p className="text-slate-400 text-sm">Welcome back,</p>
@@ -236,7 +316,6 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         </div>
       </div>
 
-      {/* Menu buttons */}
       <div className="space-y-4 w-full max-w-sm">
         <button
           data-testid="play-button"
@@ -252,7 +331,7 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
           <p className="text-red-400 text-center text-sm">No lives! Wait or buy more.</p>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-4 gap-3">
           <button
             data-testid="shop-button"
             className="btn-3d btn-3d-green flex flex-col items-center gap-1 py-3"
@@ -275,6 +354,15 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
           </button>
 
           <button
+            data-testid="achievements-button"
+            className="btn-3d bg-emerald-600 text-white border-b-4 border-emerald-800 flex flex-col items-center gap-1 py-3"
+            onClick={onOpenAchievements}
+          >
+            <Award className="w-6 h-6" />
+            <span className="text-xs">Awards</span>
+          </button>
+
+          <button
             data-testid="leaderboard-button"
             className="btn-3d bg-purple-600 text-white border-b-4 border-purple-800 flex flex-col items-center gap-1 py-3"
             onClick={onOpenLeaderboard}
@@ -285,7 +373,6 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         </div>
       </div>
 
-      {/* High score */}
       {player?.high_score > 0 && (
         <div className="mt-6 text-center">
           <p className="text-slate-500 text-sm">Personal Best</p>
@@ -297,7 +384,7 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
 };
 
 // Shop Modal
-const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd }) => {
+const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd, isWatchingAd }) => {
   const items = [
     { id: 'lives', name: '+5 Lives', price: prices.lives * 5, icon: Heart, color: 'text-red-400', qty: 5 },
     { id: 'hammer', name: 'Hammer x3', price: prices.hammer * 3, icon: Hammer, color: 'text-amber-400', qty: 3 },
@@ -346,28 +433,32 @@ const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd }) => {
           })}
         </div>
 
-        {/* Watch Ad section */}
         <div className="border-t border-white/10 pt-4">
-          <p className="text-slate-400 text-sm text-center mb-3">Free Rewards</p>
+          <p className="text-slate-400 text-sm text-center mb-3">Free Rewards (Watch Ad)</p>
           <div className="grid grid-cols-2 gap-3">
             <button
               data-testid="watch-ad-coins"
               className="btn-3d btn-3d-green text-sm py-3"
               onClick={() => onWatchAd('coins')}
+              disabled={isWatchingAd}
             >
-              <Coins className="w-4 h-4 inline mr-1" />
-              +20-50 Coins
+              {isWatchingAd ? 'Loading...' : <>
+                <Coins className="w-4 h-4 inline mr-1" />
+                +20-50 Coins
+              </>}
             </button>
             <button
               data-testid="watch-ad-life"
               className="btn-3d btn-3d-red text-sm py-3"
               onClick={() => onWatchAd('life')}
+              disabled={isWatchingAd}
             >
-              <Heart className="w-4 h-4 inline mr-1" />
-              +1 Life
+              {isWatchingAd ? 'Loading...' : <>
+                <Heart className="w-4 h-4 inline mr-1" />
+                +1 Life
+              </>}
             </button>
           </div>
-          <p className="text-slate-500 text-xs text-center mt-2">Watch a short ad</p>
         </div>
       </div>
     </div>
@@ -393,7 +484,6 @@ const DailyRewardModal = ({ status, onClose, onClaim }) => {
             const day = idx + 1;
             const isClaimed = day <= status.current_streak && !status.can_claim;
             const isCurrent = day === status.next_reward_day && status.can_claim;
-            const isLocked = day > status.next_reward_day || (day === status.next_reward_day && !status.can_claim);
 
             return (
               <div
@@ -427,6 +517,60 @@ const DailyRewardModal = ({ status, onClose, onClaim }) => {
             <p className="text-sm mt-1">Current streak: {status.current_streak} days</p>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// Achievements Modal
+const AchievementsModal = ({ player, onClose }) => {
+  const checkAchievement = (achievement) => {
+    switch (achievement.id) {
+      case 'level_5':
+      case 'level_10':
+        return (player?.current_level || 1) >= achievement.threshold;
+      case 'score_10k':
+      case 'score_50k':
+        return (player?.high_score || 0) >= achievement.threshold;
+      case 'daily_7':
+        return (player?.daily_reward_streak || 0) >= achievement.threshold;
+      default:
+        return false;
+    }
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="font-heading text-3xl font-bold text-white">Achievements</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white">
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
+          {ACHIEVEMENTS.map(achievement => {
+            const unlocked = checkAchievement(achievement);
+            return (
+              <div
+                key={achievement.id}
+                className={`flex items-center gap-4 p-4 rounded-xl ${unlocked ? 'bg-amber-500/20 border border-amber-500/40' : 'bg-white/5'}`}
+              >
+                <div className={`text-3xl ${unlocked ? '' : 'grayscale opacity-50'}`}>
+                  {achievement.icon}
+                </div>
+                <div className="flex-1">
+                  <p className={`font-bold ${unlocked ? 'text-amber-400' : 'text-slate-400'}`}>
+                    {achievement.name}
+                  </p>
+                  <p className="text-xs text-slate-500">{achievement.desc}</p>
+                </div>
+                {unlocked && <div className="text-green-400 text-xl">✓</div>}
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -472,8 +616,8 @@ const LeaderboardModal = ({ leaderboard, currentPlayer, onClose }) => {
   );
 };
 
-// Game Over Modal
-const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, onRestart, onMainMenu }) => {
+// Game Over Modal with Watch Ad to Continue
+const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, onRestart, onMainMenu, onWatchAdContinue, canContinue }) => {
   return (
     <div className="modal-overlay">
       <div className="modal-content text-center">
@@ -507,6 +651,16 @@ const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, onR
         </div>
 
         <div className="space-y-3">
+          {!won && canContinue && (
+            <button
+              data-testid="watch-ad-continue"
+              className="btn-3d bg-emerald-500 text-white border-b-4 border-emerald-700 w-full flex items-center justify-center gap-2"
+              onClick={onWatchAdContinue}
+            >
+              <Play className="w-5 h-5" />
+              Watch Ad for +5 Moves
+            </button>
+          )}
           <button
             data-testid="play-again-button"
             className="btn-3d btn-3d-gold w-full"
@@ -534,6 +688,7 @@ const NameInputModal = ({ onSubmit }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (name.trim()) {
+      soundManager.play('buttonClick');
       onSubmit(name.trim());
     }
   };
@@ -542,7 +697,7 @@ const NameInputModal = ({ onSubmit }) => {
     <div className="modal-overlay">
       <div className="modal-content text-center">
         <h2 className="font-heading text-4xl font-bold text-white mb-2">
-          GEM <span className="text-amber-400">CRUSH</span>
+          GLIMMER <span className="text-amber-400">QUEST</span>
         </h2>
         <p className="text-slate-400 mb-6">Enter your name to start playing!</p>
         
@@ -573,18 +728,29 @@ const NameInputModal = ({ onSubmit }) => {
 
 // Main App Component
 function App() {
+  // Initialize sound
+  useEffect(() => {
+    soundManager.init();
+  }, []);
+
+  // Ad placement hook
+  const { showRewardedAd, showInterstitialAd } = useAdPlacement();
+
   // Game state
   const [board, setBoard] = useState(null);
   const [selectedGem, setSelectedGem] = useState(null);
   const [score, setScore] = useState(0);
   const [movesLeft, setMovesLeft] = useState(MOVES_PER_LEVEL);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'gameover'
+  const [gameState, setGameState] = useState('menu');
   const [gameWon, setGameWon] = useState(false);
   const [coinsEarned, setCoinsEarned] = useState(0);
   const [newHighScore, setNewHighScore] = useState(false);
   const [activePowerUp, setActivePowerUp] = useState(null);
   const [comboCount, setComboCount] = useState(0);
+  const [canContinue, setCanContinue] = useState(true);
+  const [soundOn, setSoundOn] = useState(true);
+  const [isWatchingAd, setIsWatchingAd] = useState(false);
 
   // Player state
   const [player, setPlayer] = useState(null);
@@ -594,6 +760,7 @@ function App() {
   const [showShop, setShowShop] = useState(false);
   const [showDailyReward, setShowDailyReward] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [showAchievements, setShowAchievements] = useState(false);
   const [shopPrices, setShopPrices] = useState({});
   const [dailyRewardStatus, setDailyRewardStatus] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -601,6 +768,13 @@ function App() {
   // Drag state
   const dragStart = useRef(null);
   const isDragging = useRef(false);
+
+  // Toggle sound
+  const toggleSound = () => {
+    const newSoundOn = !soundOn;
+    setSoundOn(newSoundOn);
+    soundManager.setMuted(!newSoundOn);
+  };
 
   // Load shop prices
   useEffect(() => {
@@ -652,11 +826,12 @@ function App() {
 
   // Start game
   const startGame = async () => {
+    soundManager.play('buttonClick');
     try {
       const res = await axios.post(`${API}/game/start?player_id=${player.id}`);
       if (res.data.success) {
         setPlayer(prev => ({ ...prev, lives: res.data.lives_remaining, power_ups: res.data.power_ups }));
-        setBoard(createBoard());
+        setBoard(createBoard(player.current_level));
         setScore(0);
         setMovesLeft(MOVES_PER_LEVEL);
         setComboCount(0);
@@ -664,6 +839,7 @@ function App() {
         setGameWon(false);
         setNewHighScore(false);
         setActivePowerUp(null);
+        setCanContinue(true);
       }
     } catch (err) {
       console.error('Error starting game:', err);
@@ -678,6 +854,14 @@ function App() {
     setGameWon(won);
     const earned = Math.floor(score / 10);
     setCoinsEarned(earned);
+    
+    if (won) {
+      soundManager.play('levelUp');
+      // Show interstitial ad between levels
+      await showInterstitialAd(`level_${player.current_level}_complete`);
+    } else {
+      soundManager.play('gameOver');
+    }
     
     try {
       const res = await axios.post(`${API}/game/end`, {
@@ -696,50 +880,80 @@ function App() {
     setGameState('gameover');
   };
 
+  // Watch ad to continue
+  const handleWatchAdContinue = async () => {
+    setIsWatchingAd(true);
+    try {
+      const result = await showRewardedAd('continue_game');
+      if (result.completed) {
+        soundManager.play('coinCollect');
+        setMovesLeft(prev => prev + 5);
+        setGameState('playing');
+        setCanContinue(false); // Only allow one continue per game
+      }
+    } catch (err) {
+      console.error('Error showing ad:', err);
+    }
+    setIsWatchingAd(false);
+  };
+
   // Get target score for current level
   const getTargetScore = () => {
     const level = player?.current_level || 1;
-    return LEVEL_SCORE_TARGETS[Math.min(level - 1, LEVEL_SCORE_TARGETS.length - 1)];
+    return LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)].target;
   };
 
-  // Check for matches
+  // Check for matches and create special gems
   const findMatches = useCallback((currentBoard) => {
-    const matches = new Set();
+    const matches = new Map(); // key -> { positions: [], length: number, direction: 'h' | 'v' }
     
     // Check horizontal matches
     for (let row = 0; row < BOARD_SIZE; row++) {
-      for (let col = 0; col < BOARD_SIZE - 2; col++) {
-        const type = currentBoard[row][col].type;
-        if (type && currentBoard[row][col + 1].type === type && currentBoard[row][col + 2].type === type) {
-          matches.add(`${row}-${col}`);
-          matches.add(`${row}-${col + 1}`);
-          matches.add(`${row}-${col + 2}`);
-          // Check for 4+ matches
-          if (col + 3 < BOARD_SIZE && currentBoard[row][col + 3].type === type) {
-            matches.add(`${row}-${col + 3}`);
+      let matchStart = 0;
+      for (let col = 1; col <= BOARD_SIZE; col++) {
+        const prevType = currentBoard[row][col - 1]?.type;
+        const currType = col < BOARD_SIZE ? currentBoard[row][col]?.type : null;
+        
+        if (currType !== prevType || col === BOARD_SIZE || prevType === 'blocker') {
+          const matchLength = col - matchStart;
+          if (matchLength >= 3 && prevType !== 'blocker') {
+            for (let i = matchStart; i < col; i++) {
+              const key = `${row}-${i}`;
+              if (!matches.has(key)) {
+                matches.set(key, { length: matchLength, direction: 'h', row, col: matchStart });
+              } else {
+                // Intersection - could create wrapped gem
+                const existing = matches.get(key);
+                existing.intersection = true;
+              }
+            }
           }
-          if (col + 4 < BOARD_SIZE && currentBoard[row][col + 4].type === type) {
-            matches.add(`${row}-${col + 4}`);
-          }
+          matchStart = col;
         }
       }
     }
     
     // Check vertical matches
-    for (let row = 0; row < BOARD_SIZE - 2; row++) {
-      for (let col = 0; col < BOARD_SIZE; col++) {
-        const type = currentBoard[row][col].type;
-        if (type && currentBoard[row + 1][col].type === type && currentBoard[row + 2][col].type === type) {
-          matches.add(`${row}-${col}`);
-          matches.add(`${row + 1}-${col}`);
-          matches.add(`${row + 2}-${col}`);
-          // Check for 4+ matches
-          if (row + 3 < BOARD_SIZE && currentBoard[row + 3][col].type === type) {
-            matches.add(`${row + 3}-${col}`);
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      let matchStart = 0;
+      for (let row = 1; row <= BOARD_SIZE; row++) {
+        const prevType = currentBoard[row - 1]?.[col]?.type;
+        const currType = row < BOARD_SIZE ? currentBoard[row]?.[col]?.type : null;
+        
+        if (currType !== prevType || row === BOARD_SIZE || prevType === 'blocker') {
+          const matchLength = row - matchStart;
+          if (matchLength >= 3 && prevType !== 'blocker') {
+            for (let i = matchStart; i < row; i++) {
+              const key = `${i}-${col}`;
+              if (!matches.has(key)) {
+                matches.set(key, { length: matchLength, direction: 'v', row: matchStart, col });
+              } else {
+                const existing = matches.get(key);
+                existing.intersection = true;
+              }
+            }
           }
-          if (row + 4 < BOARD_SIZE && currentBoard[row + 4][col].type === type) {
-            matches.add(`${row + 4}-${col}`);
-          }
+          matchStart = row;
         }
       }
     }
@@ -748,7 +962,7 @@ function App() {
   }, []);
 
   // Process matches and cascade
-  const processMatches = useCallback(async (currentBoard, isInitial = false) => {
+  const processMatches = useCallback(async (currentBoard, isInitial = false, swapPos = null) => {
     let newBoard = currentBoard.map(row => row.map(gem => ({ ...gem })));
     let totalMatched = 0;
     let cascadeCount = 0;
@@ -761,12 +975,42 @@ function App() {
       totalMatched += matches.size;
       cascadeCount++;
       
-      // Mark matched gems
-      matches.forEach(key => {
+      // Determine special gems to create
+      const specialGems = [];
+      matches.forEach((info, key) => {
         const [row, col] = key.split('-').map(Number);
-        newBoard[row][col].matched = true;
+        
+        // Check for special gem creation conditions
+        if (info.length >= 5) {
+          // 5+ match creates color bomb
+          specialGems.push({ row, col, special: 'color_bomb', type: newBoard[row][col].type });
+        } else if (info.intersection) {
+          // L or T shape creates wrapped
+          specialGems.push({ row, col, special: 'wrapped', type: newBoard[row][col].type });
+        } else if (info.length === 4) {
+          // 4 match creates striped
+          const special = info.direction === 'h' ? 'striped_v' : 'striped_h';
+          specialGems.push({ row, col, special, type: newBoard[row][col].type });
+        }
       });
       
+      // Mark matched gems (handle obstacles)
+      matches.forEach((info, key) => {
+        const [row, col] = key.split('-').map(Number);
+        const gem = newBoard[row][col];
+        
+        // Handle ice - first match removes ice
+        if (gem.ice) {
+          gem.ice = false;
+        } else if (gem.chain > 0) {
+          // Handle chain - reduce chain level
+          gem.chain--;
+        } else {
+          gem.matched = true;
+        }
+      });
+      
+      soundManager.play(cascadeCount > 1 ? 'combo' : 'match');
       setBoard([...newBoard.map(row => [...row])]);
       
       await new Promise(resolve => setTimeout(resolve, 200));
@@ -780,14 +1024,30 @@ function App() {
           }
         }
         
-        // Fill with new gems
+        // Fill with new gems (check if special should be created)
         while (newCol.length < BOARD_SIZE) {
-          newCol.push({
+          const newGem = {
             type: GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
             id: `new-${col}-${Date.now()}-${Math.random()}`,
             matched: false,
-            falling: true
-          });
+            falling: true,
+            special: null,
+            ice: false,
+            chain: 0,
+            blocker: false,
+          };
+          
+          // Check if this position should have a special gem
+          const specialInfo = specialGems.find(s => 
+            newCol.length === BOARD_SIZE - 1 - s.row && col === s.col
+          );
+          if (specialInfo) {
+            newGem.special = specialInfo.special;
+            newGem.type = specialInfo.type;
+            soundManager.play('specialGem');
+          }
+          
+          newCol.push(newGem);
         }
         
         // Place back in board (reversed)
@@ -811,7 +1071,6 @@ function App() {
     }
     
     if (totalMatched > 0 && !isInitial) {
-      // Calculate score with combo multiplier
       const baseScore = totalMatched * 10;
       const comboMultiplier = Math.min(cascadeCount, 5);
       const finalScore = baseScore * comboMultiplier;
@@ -819,7 +1078,6 @@ function App() {
       setComboCount(cascadeCount);
       
       if (cascadeCount >= 3) {
-        // Add shake effect for big combos
         document.querySelector('.game-board')?.classList.add('shake');
         setTimeout(() => {
           document.querySelector('.game-board')?.classList.remove('shake');
@@ -830,19 +1088,76 @@ function App() {
     return newBoard;
   }, [findMatches]);
 
+  // Activate special gem
+  const activateSpecialGem = useCallback(async (board, row, col) => {
+    const gem = board[row][col];
+    if (!gem.special) return board;
+    
+    const newBoard = board.map(r => r.map(g => ({ ...g })));
+    soundManager.play('powerUp');
+    
+    switch (gem.special) {
+      case 'striped_h':
+        // Clear entire row
+        for (let c = 0; c < BOARD_SIZE; c++) {
+          if (!newBoard[row][c].blocker) {
+            newBoard[row][c].matched = true;
+          }
+        }
+        break;
+      case 'striped_v':
+        // Clear entire column
+        for (let r = 0; r < BOARD_SIZE; r++) {
+          if (!newBoard[r][col].blocker) {
+            newBoard[r][col].matched = true;
+          }
+        }
+        break;
+      case 'wrapped':
+        // Clear 3x3 area
+        for (let r = Math.max(0, row - 1); r <= Math.min(BOARD_SIZE - 1, row + 1); r++) {
+          for (let c = Math.max(0, col - 1); c <= Math.min(BOARD_SIZE - 1, col + 1); c++) {
+            if (!newBoard[r][c].blocker) {
+              newBoard[r][c].matched = true;
+            }
+          }
+        }
+        break;
+      case 'color_bomb':
+        // Clear all gems of the same color
+        const targetType = gem.type;
+        for (let r = 0; r < BOARD_SIZE; r++) {
+          for (let c = 0; c < BOARD_SIZE; c++) {
+            if (newBoard[r][c].type === targetType && !newBoard[r][c].blocker) {
+              newBoard[r][c].matched = true;
+            }
+          }
+        }
+        break;
+      default:
+        break;
+    }
+    
+    return newBoard;
+  }, []);
+
   // Swap gems
   const swapGems = useCallback(async (row1, col1, row2, col2) => {
     if (isProcessing) return;
     
-    // Check if swap is valid (adjacent)
     const rowDiff = Math.abs(row1 - row2);
     const colDiff = Math.abs(col1 - col2);
     if (rowDiff + colDiff !== 1) return;
     
+    // Check if either gem is blocked
+    if (board[row1][col1].blocker || board[row2][col2].blocker) return;
+    if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) return;
+    
     setIsProcessing(true);
+    soundManager.play('swap');
     
     // Perform swap
-    const newBoard = board.map(row => row.map(gem => ({ ...gem })));
+    let newBoard = board.map(row => row.map(gem => ({ ...gem })));
     const temp = newBoard[row1][col1];
     newBoard[row1][col1] = newBoard[row2][col2];
     newBoard[row2][col2] = temp;
@@ -851,13 +1166,20 @@ function App() {
     
     await new Promise(resolve => setTimeout(resolve, 150));
     
+    // Check if either swapped gem is special
+    if (newBoard[row1][col1].special) {
+      newBoard = await activateSpecialGem(newBoard, row1, col1);
+    }
+    if (newBoard[row2][col2].special) {
+      newBoard = await activateSpecialGem(newBoard, row2, col2);
+    }
+    
     // Check for matches
     const matches = findMatches(newBoard);
     
-    if (matches.size > 0) {
-      // Valid move
+    if (matches.size > 0 || newBoard[row1][col1].matched || newBoard[row2][col2].matched) {
       setMovesLeft(prev => prev - 1);
-      await processMatches(newBoard);
+      await processMatches(newBoard, false, { row1, col1, row2, col2 });
     } else {
       // Invalid move - swap back
       const revertBoard = newBoard.map(row => row.map(gem => ({ ...gem })));
@@ -869,13 +1191,13 @@ function App() {
     
     setSelectedGem(null);
     setIsProcessing(false);
-  }, [board, isProcessing, findMatches, processMatches]);
+  }, [board, isProcessing, findMatches, processMatches, activateSpecialGem]);
 
   // Handle gem click
   const handleGemClick = (row, col) => {
     if (isProcessing || gameState !== 'playing') return;
+    if (board[row][col].blocker) return;
     
-    // Handle power-up usage
     if (activePowerUp) {
       applyPowerUp(row, col);
       return;
@@ -891,6 +1213,7 @@ function App() {
   // Drag handlers
   const handleDragStart = (row, col) => {
     if (isProcessing || gameState !== 'playing' || activePowerUp) return;
+    if (board[row][col].blocker) return;
     dragStart.current = { row, col };
     isDragging.current = true;
   };
@@ -916,11 +1239,12 @@ function App() {
     dragStart.current = null;
   };
 
-  // Apply power-up to gem
+  // Apply power-up
   const applyPowerUp = async (row, col) => {
     if (!activePowerUp) return;
     
     setIsProcessing(true);
+    soundManager.play('powerUp');
     
     try {
       await axios.post(`${API}/powerup/use`, {
@@ -928,19 +1252,19 @@ function App() {
         power_up_type: activePowerUp
       });
       
-      const newBoard = board.map(r => r.map(gem => ({ ...gem })));
+      let newBoard = board.map(r => r.map(gem => ({ ...gem })));
       
       if (activePowerUp === 'hammer') {
-        // Remove single gem
-        newBoard[row][col].matched = true;
+        if (!newBoard[row][col].blocker) {
+          newBoard[row][col].matched = true;
+        }
         setBoard(newBoard);
         await processMatches(newBoard);
       } else if (activePowerUp === 'color_bomb') {
-        // Remove all gems of same color
         const targetType = newBoard[row][col].type;
         for (let r = 0; r < BOARD_SIZE; r++) {
           for (let c = 0; c < BOARD_SIZE; c++) {
-            if (newBoard[r][c].type === targetType) {
+            if (newBoard[r][c].type === targetType && !newBoard[r][c].blocker) {
               newBoard[r][c].matched = true;
             }
           }
@@ -948,14 +1272,14 @@ function App() {
         setBoard(newBoard);
         await processMatches(newBoard);
       } else if (activePowerUp === 'shuffle') {
-        // Shuffle all gems
         const allGems = [];
         for (let r = 0; r < BOARD_SIZE; r++) {
           for (let c = 0; c < BOARD_SIZE; c++) {
-            allGems.push(newBoard[r][c].type);
+            if (!newBoard[r][c].blocker) {
+              allGems.push(newBoard[r][c].type);
+            }
           }
         }
-        // Fisher-Yates shuffle
         for (let i = allGems.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [allGems[i], allGems[j]] = [allGems[j], allGems[i]];
@@ -963,18 +1287,19 @@ function App() {
         let idx = 0;
         for (let r = 0; r < BOARD_SIZE; r++) {
           for (let c = 0; c < BOARD_SIZE; c++) {
-            newBoard[r][c] = {
-              ...newBoard[r][c],
-              type: allGems[idx++],
-              id: `shuffle-${r}-${c}-${Date.now()}`
-            };
+            if (!newBoard[r][c].blocker) {
+              newBoard[r][c] = {
+                ...newBoard[r][c],
+                type: allGems[idx++],
+                id: `shuffle-${r}-${c}-${Date.now()}`
+              };
+            }
           }
         }
         setBoard(newBoard);
         await processMatches(newBoard);
       }
       
-      // Update player power-ups locally
       setPlayer(prev => ({
         ...prev,
         power_ups: {
@@ -993,6 +1318,7 @@ function App() {
 
   // Toggle power-up selection
   const togglePowerUp = (type) => {
+    soundManager.play('buttonClick');
     if (activePowerUp === type) {
       setActivePowerUp(null);
     } else if (player.power_ups[type] > 0) {
@@ -1003,6 +1329,7 @@ function App() {
 
   // Shop purchase
   const handlePurchase = async (itemType, quantity) => {
+    soundManager.play('buttonClick');
     try {
       const res = await axios.post(`${API}/shop/purchase`, {
         player_id: player.id,
@@ -1010,6 +1337,7 @@ function App() {
         quantity: quantity
       });
       if (res.data.success) {
+        soundManager.play('coinCollect');
         setPlayer(res.data.player);
       }
     } catch (err) {
@@ -1020,24 +1348,30 @@ function App() {
 
   // Watch ad
   const handleWatchAd = async (rewardType) => {
+    setIsWatchingAd(true);
     try {
-      // Simulate ad watching delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      const res = await axios.post(`${API}/ads/watch?player_id=${player.id}&reward_type=${rewardType}`);
-      if (res.data.success) {
-        alert(`You earned ${res.data.amount} ${res.data.reward_type}!`);
-        await refreshPlayer();
+      const result = await showRewardedAd(`${rewardType}_reward_shop`);
+      if (result.completed) {
+        const res = await axios.post(`${API}/ads/watch?player_id=${player.id}&reward_type=${rewardType}`);
+        if (res.data.success) {
+          soundManager.play('coinCollect');
+          alert(`You earned ${res.data.amount} ${res.data.reward_type}!`);
+          await refreshPlayer();
+        }
       }
     } catch (err) {
       console.error('Ad watch error:', err);
     }
+    setIsWatchingAd(false);
   };
 
   // Claim daily reward
   const handleClaimDailyReward = async () => {
+    soundManager.play('buttonClick');
     try {
       const res = await axios.post(`${API}/daily-reward/claim`, { player_id: player.id });
       if (res.data.success) {
+        soundManager.play('coinCollect');
         alert(`Day ${res.data.day} reward claimed! +${res.data.coins_reward} coins`);
         await refreshPlayer();
         loadDailyRewardStatus(player.id);
@@ -1082,14 +1416,20 @@ function App() {
         <MainMenu
           player={player}
           onStartGame={startGame}
-          onOpenShop={() => setShowShop(true)}
+          onOpenShop={() => { soundManager.play('buttonClick'); setShowShop(true); }}
           onOpenLeaderboard={() => {
+            soundManager.play('buttonClick');
             loadLeaderboard();
             setShowLeaderboard(true);
           }}
           onOpenDailyReward={() => {
+            soundManager.play('buttonClick');
             loadDailyRewardStatus(player.id);
             setShowDailyReward(true);
+          }}
+          onOpenAchievements={() => {
+            soundManager.play('buttonClick');
+            setShowAchievements(true);
           }}
           dailyRewardAvailable={dailyRewardStatus?.can_claim}
         />
@@ -1106,6 +1446,8 @@ function App() {
             movesLeft={movesLeft}
             level={player?.current_level || 1}
             targetScore={getTargetScore()}
+            soundOn={soundOn}
+            onToggleSound={toggleSound}
           />
           
           <PowerUpsBar
@@ -1157,6 +1499,7 @@ function App() {
               data-testid="quit-game-button"
               className="text-slate-400 hover:text-white text-sm"
               onClick={() => {
+                soundManager.play('buttonClick');
                 setGameState('menu');
                 refreshPlayer();
               }}
@@ -1176,9 +1519,12 @@ function App() {
           newHighScore={newHighScore}
           onRestart={startGame}
           onMainMenu={() => {
+            soundManager.play('buttonClick');
             setGameState('menu');
             refreshPlayer();
           }}
+          onWatchAdContinue={handleWatchAdContinue}
+          canContinue={canContinue && !gameWon}
         />
       )}
       
@@ -1189,6 +1535,7 @@ function App() {
           onClose={() => setShowShop(false)}
           onPurchase={handlePurchase}
           onWatchAd={handleWatchAd}
+          isWatchingAd={isWatchingAd}
         />
       )}
       
@@ -1197,6 +1544,13 @@ function App() {
           status={dailyRewardStatus}
           onClose={() => setShowDailyReward(false)}
           onClaim={handleClaimDailyReward}
+        />
+      )}
+      
+      {showAchievements && (
+        <AchievementsModal
+          player={player}
+          onClose={() => setShowAchievements(false)}
         />
       )}
       
