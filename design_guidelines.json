@@ -1,0 +1,98 @@
+{
+  "app_name": "Gem Crush",
+  "domain": "casual_game",
+  "theme": "dark",
+  "archetype": "Archetype 5 (Jewel & Luxury) + Archetype 6 (Vibrant Play)",
+  "design_philosophy": {
+    "core_principles": [
+      "Fusion over Imitation: Combine high-end jewelry presentation (deep backgrounds, glossy reflections) with the bouncy, tactile joy of casual gaming.",
+      "Emotion First: Create the feeling of 'unearthing treasure' with glowing high-contrast elements and soft magical backgrounds.",
+      "Focus on the Board: UI surrounding the game board must recede. The gems are the heroes.",
+      "Tactile Delight: Buttons shouldn't just be clicked; they should feel like they are being 'pressed' and 'popped'."
+    ],
+    "vibe": "Magical, glossy, high-energy, immersive"
+  },
+  "colors": {
+    "background_base": "#0B0B13",
+    "background_gradient": "bg-gradient-to-b from-[#0B0B13] via-[#1A1025] to-[#0A0512]",
+    "surface_glass": "bg-white/10 backdrop-blur-xl border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-saturate-150",
+    "surface_solid": "bg-[#1E293B] border border-white/10",
+    "primary_cta": "#FBBF24",
+    "primary_cta_hover": "#FDE68A",
+    "text_main": "#F8FAFC",
+    "text_muted": "#94A3B8",
+    "game_elements": {
+      "gem_red": "from-red-400 to-red-600 shadow-[0_0_15px_rgba(239,68,68,0.5)]",
+      "gem_blue": "from-blue-400 to-blue-600 shadow-[0_0_15px_rgba(59,130,246,0.5)]",
+      "gem_green": "from-emerald-400 to-emerald-600 shadow-[0_0_15px_rgba(16,185,129,0.5)]",
+      "gem_yellow": "from-amber-300 to-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.5)]",
+      "gem_purple": "from-purple-400 to-purple-600 shadow-[0_0_15px_rgba(168,85,247,0.5)]",
+      "lives_heart": "#EF4444",
+      "coins_gold": "#EAB308"
+    }
+  },
+  "typography": {
+    "font_families": {
+      "heading": "'Fredoka', sans-serif",
+      "body": "'Nunito', sans-serif",
+      "monospace": "'JetBrains Mono', monospace"
+    },
+    "scales": {
+      "h1_title": "text-5xl lg:text-6xl font-black tracking-tight text-white drop-shadow-lg",
+      "h2_section": "text-3xl lg:text-4xl font-bold tracking-tight text-white",
+      "h3_card": "text-xl font-bold text-white",
+      "body": "text-base font-medium text-slate-300",
+      "labels": "text-xs font-bold uppercase tracking-[0.2em] text-slate-400"
+    }
+  },
+  "layout_and_spacing": {
+    "grid_strategy": "Control Room Grid (Dense) for the Game Board to ensure perfect alignment. Tetris Grid (Asymmetric) for the Main Menu and Shop to create visual excitement.",
+    "container_padding": "Generous spacing around menus: p-6 or p-8. Game board should be perfectly centered with tight internal padding (p-2) to maximize gem size.",
+    "surfaces": {
+      "header_hud": "Glassmorphism (Crystal variant) sticky at the top, highly saturated backdrop blur.",
+      "game_board_wrapper": "Flat solid background (bg-black/40) with a glowing border (border-white/10) to separate it from the magical background image.",
+      "modals": "Neumorphic tactile variant, soft drop shadows and sharp 1px inner highlights. Never use generic white cards."
+    }
+  },
+  "components": {
+    "buttons": "Heavy, chunky buttons with bottom borders (e.g., border-b-4 border-amber-600) to create a 3D press effect. On active/click, remove the bottom border and translate down (translate-y-1).",
+    "gems": "Use pure CSS and standard icons if images are unavailable. Create 3D gems using a radial gradient background, a hard inner light reflection (inset shadow), and an external glow.",
+    "score_display": "Retro-Futurism style terminal block. Monospace font with a slight neon glow effect to make the numbers pop.",
+    "game_over_screen": "Use a heavy black/70 overlay to fade out the board. Present a large, bouncy modal with the score and options to restart or go to main menu."
+  },
+  "motion_and_interaction": {
+    "hover_states": "All buttons must brighten and lift slightly. Gems should pulse on hover.",
+    "match_animation": "When gems match, they should briefly scale up (scale-110), increase in brightness, and then fade out quickly. (Main agent must implement logic for this).",
+    "board_entrance": "Staggered fade-in of the gems when the level loads.",
+    "feedback": "Haptic/Visual feedback is critical. Implement screen shake (subtle CSS translate) on large combos if possible."
+  },
+  "assets_and_media": {
+    "icon_library": "lucide-react for standard UI (Settings, X, Menu). Standard SVG shapes for gems (Diamond, Circle, Square, Hexagon, Star).",
+    "image_urls": [
+      {
+        "category": "game_map_background",
+        "description": "Magical dark forest night with glowing fireflies, used as the immersive app background behind the glass UI.",
+        "url": "https://images.unsplash.com/photo-1763321402439-41eb2a0c7e7b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA0MTJ8MHwxfHNlYXJjaHwzfHxtYWdpY2FsJTIwZm9yZXN0JTIwbmlnaHR8ZW58MHx8fHwxNzc0OTE1MzgxfDA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "shop_coin_texture",
+        "description": "Gold coin stack for the shop background or icon texture.",
+        "url": "https://images.unsplash.com/photo-1624365168785-c65be9114821?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1MDV8MHwxfHNlYXJjaHwxfHxnb2xkJTIwY29pbnxlbnwwfHx8fDE3NzQ5MTUzODN8MA&ixlib=rb-4.1.0&q=85"
+      },
+      {
+        "category": "shiny_gem_reference",
+        "description": "Reference for creating the glowing, glossy CSS gem assets.",
+        "url": "https://images.unsplash.com/photo-1772047678316-5dfb00ebd72e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1Nzl8MHwxfHNlYXJjaHwyfHxzaGlueSUyMGdlbXN0b25lfGVufDB8fHx8MTc3NDkxNTM4Mnww&ixlib=rb-4.1.0&q=85"
+      }
+    ]
+  },
+  "testing_attributes": "All interactive elements (Gems, CTAs, Power-ups, Shop Items, Modals) must include data-testid. Examples: data-testid='gem-cell-0-0', data-testid='buy-powerup-button', data-testid='lives-display'.",
+  "instructions_to_main_agent": [
+    "Build the UI in React using standard HTML/Tailwind for the heavy game board logic and layout.",
+    "Use Framer Motion to handle the gem swapping and grid falling animations. This is CRITICAL for a match-3 game.",
+    "Instead of flat colored squares, create highly stylized 3D CSS gems. Use `bg-gradient-to-br` with an inset shadow (`shadow-[inset_0_4px_4px_rgba(255,255,255,0.4)]`) and rounded corners to simulate glossy jewels.",
+    "Implement the 'Glassmorphism' style for the top HUD (lives, coins, score) so the magical forest background bleeds through.",
+    "Ensure the game board is a strict, responsive grid (e.g., 8x8) using CSS grid. Set `touch-action: none` on the board to handle swipe gestures natively.",
+    "Shop and Daily Rewards should use Shadcn Dialog components, heavily restyled to fit the 'Neumorphic tactile' dark theme with bright yellow CTAs."
+  ]
+}
