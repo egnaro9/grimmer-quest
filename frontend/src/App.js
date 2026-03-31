@@ -989,14 +989,7 @@ function App() {
 
   // Check for matches and create special gems
   const findMatches = useCallback((currentBoard) => {
-    const matches = new Map(); // key -> { positions: [], length: number, direction: 'h' | 'v' }
-    
-    // Debug: Log board state
-    console.log('Checking for matches on board:');
-    for (let r = 0; r < BOARD_SIZE; r++) {
-      const rowTypes = currentBoard[r].map(g => g.type[0]).join(' ');
-      console.log(`Row ${r}: ${rowTypes}`);
-    }
+    const matches = new Map();
     
     // Check horizontal matches
     for (let row = 0; row < BOARD_SIZE; row++) {
@@ -1008,13 +1001,11 @@ function App() {
         if (currType !== prevType || col === BOARD_SIZE || prevType === 'blocker') {
           const matchLength = col - matchStart;
           if (matchLength >= 3 && prevType !== 'blocker') {
-            console.log(`Found horizontal match: row ${row}, cols ${matchStart}-${col-1}, type ${prevType}, length ${matchLength}`);
             for (let i = matchStart; i < col; i++) {
               const key = `${row}-${i}`;
               if (!matches.has(key)) {
                 matches.set(key, { length: matchLength, direction: 'h', row, col: matchStart });
               } else {
-                // Intersection - could create wrapped gem
                 const existing = matches.get(key);
                 existing.intersection = true;
               }
@@ -1158,8 +1149,10 @@ function App() {
       return true;
     };
     
-    while (await processOnce()) {
-      // Continue cascading
+    // Limit cascades to prevent infinite loops
+    const MAX_CASCADES = 10;
+    while (cascadeCount < MAX_CASCADES && await processOnce()) {
+      // Continue cascading up to limit
     }
     
     if (totalMatched > 0 && !isInitial) {
@@ -1235,43 +1228,28 @@ function App() {
 
   // Swap gems
   const swapGems = useCallback(async (row1, col1, row2, col2) => {
-    console.log('swapGems called:', row1, col1, row2, col2);
-    if (isProcessing) {
-      console.log('Blocked: already processing');
-      return;
-    }
+    if (isProcessing) return;
     
     const rowDiff = Math.abs(row1 - row2);
     const colDiff = Math.abs(col1 - col2);
-    if (rowDiff + colDiff !== 1) {
-      console.log('Blocked: not adjacent');
-      return;
-    }
+    if (rowDiff + colDiff !== 1) return;
     
     // Check if either gem is blocked
-    if (board[row1][col1].blocker || board[row2][col2].blocker) {
-      console.log('Blocked: blocker gem');
-      return;
-    }
-    if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) {
-      console.log('Blocked: chained gem');
-      return;
-    }
+    if (board[row1][col1].blocker || board[row2][col2].blocker) return;
+    if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) return;
     
     setIsProcessing(true);
-    setSelectedGem(null); // Clear selection immediately
+    setSelectedGem(null);
     soundManager.play('swap');
     
-    // Perform swap immediately
+    // Perform swap
     let newBoard = board.map(row => row.map(gem => ({ ...gem })));
     const temp = newBoard[row1][col1];
     newBoard[row1][col1] = newBoard[row2][col2];
     newBoard[row2][col2] = temp;
     
-    console.log('Board swapped, setting new board');
     setBoard(newBoard);
     
-    // Wait for visual swap
     await new Promise(resolve => setTimeout(resolve, 150));
     
     // Check if either swapped gem is special
@@ -1284,16 +1262,13 @@ function App() {
     
     // Check for matches
     const matches = findMatches(newBoard);
-    console.log('Matches found:', matches.size);
     
     if (matches.size > 0 || newBoard[row1][col1].matched || newBoard[row2][col2].matched) {
-      console.log('Valid move - processing matches');
       setMovesLeft(prev => prev - 1);
       await processMatches(newBoard, false, { row1, col1, row2, col2 });
     } else {
-      // Invalid move - swap back with delay so user sees it
-      console.log('No matches - reverting swap');
-      await new Promise(resolve => setTimeout(resolve, 200));
+      // Invalid move - swap back
+      await new Promise(resolve => setTimeout(resolve, 150));
       const revertBoard = newBoard.map(row => row.map(gem => ({ ...gem })));
       const temp2 = revertBoard[row1][col1];
       revertBoard[row1][col1] = revertBoard[row2][col2];
@@ -1301,7 +1276,6 @@ function App() {
       setBoard(revertBoard);
     }
     
-    console.log('Swap complete');
     setIsProcessing(false);
   }, [board, isProcessing, findMatches, processMatches, activateSpecialGem]);
 
@@ -1384,24 +1358,11 @@ function App() {
 
   // Simple gem selection handler
   const handleGemSelect = useCallback((row, col) => {
-    console.log('Gem clicked:', row, col, 'isProcessing:', isProcessing, 'gameState:', gameState);
-    
-    if (isProcessing) {
-      console.log('Blocked: isProcessing');
-      return;
-    }
-    if (gameState !== 'playing') {
-      console.log('Blocked: not playing');
-      return;
-    }
-    if (board[row][col].blocker) {
-      console.log('Blocked: is blocker');
-      return;
-    }
+    if (isProcessing || gameState !== 'playing') return;
+    if (board[row][col].blocker) return;
     
     // Handle power-up usage
     if (activePowerUp) {
-      console.log('Using power-up');
       applyPowerUp(row, col);
       return;
     }
@@ -1411,24 +1372,18 @@ function App() {
       const rowDiff = Math.abs(row - selectedGem.row);
       const colDiff = Math.abs(col - selectedGem.col);
       
-      console.log('Selected gem exists at', selectedGem.row, selectedGem.col, 'diff:', rowDiff, colDiff);
-      
       if (row === selectedGem.row && col === selectedGem.col) {
         // Clicked same gem - deselect
-        console.log('Deselecting');
         setSelectedGem(null);
       } else if (rowDiff + colDiff === 1) {
         // Adjacent gem - swap!
-        console.log('Swapping!');
         swapGems(selectedGem.row, selectedGem.col, row, col);
       } else {
         // Not adjacent - select new gem
-        console.log('Selecting new gem');
         setSelectedGem({ row, col });
       }
     } else {
       // No selection yet - select this gem
-      console.log('First selection');
       setSelectedGem({ row, col });
     }
   }, [isProcessing, gameState, board, activePowerUp, selectedGem, swapGems, applyPowerUp]);
