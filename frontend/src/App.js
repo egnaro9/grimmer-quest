@@ -106,7 +106,7 @@ const hasMatchAt = (board, row, col) => {
 };
 
 // Gem component with special effects
-const Gem = ({ gem, row, col, selected, onGemInteract }) => {
+const Gem = ({ gem, row, col, selected, onSelect }) => {
   if (gem.blocker) {
     return (
       <div 
@@ -118,29 +118,34 @@ const Gem = ({ gem, row, col, selected, onGemInteract }) => {
     );
   }
 
-  const baseClasses = `gem gem-${gem.type} w-full h-full flex items-center justify-center relative
-    ${selected ? 'selected' : ''} 
+  const baseClasses = `gem gem-${gem.type} w-full h-full flex items-center justify-center relative cursor-pointer
+    ${selected ? 'selected ring-4 ring-amber-400 ring-opacity-80 scale-110' : ''} 
     ${gem.matched ? 'matched' : ''} 
     ${gem.falling ? 'falling' : ''}
     ${gem.special ? 'special-' + gem.special : ''}`;
 
   const icons = {
-    red: <div className="w-6 h-6 rotate-45 bg-white/30 rounded-sm" />,
-    blue: <div className="w-6 h-6 rounded-full bg-white/30" />,
-    green: <div className="w-5 h-5 bg-white/30" style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }} />,
-    yellow: <Star className="w-5 h-5 text-white/40 fill-white/30" />,
-    purple: <div className="w-6 h-6 bg-white/30" style={{ clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' }} />
+    red: <div className="w-6 h-6 rotate-45 bg-white/30 rounded-sm pointer-events-none" />,
+    blue: <div className="w-6 h-6 rounded-full bg-white/30 pointer-events-none" />,
+    green: <div className="w-5 h-5 bg-white/30 pointer-events-none" style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }} />,
+    yellow: <Star className="w-5 h-5 text-white/40 fill-white/30 pointer-events-none" />,
+    purple: <div className="w-6 h-6 bg-white/30 pointer-events-none" style={{ clipPath: 'polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)' }} />
   };
 
   const specialIndicators = {
-    striped_h: <div className="absolute inset-x-1 top-1/2 h-1 bg-white/60 rounded" />,
-    striped_v: <div className="absolute inset-y-1 left-1/2 w-1 bg-white/60 rounded" />,
-    wrapped: <div className="absolute inset-2 border-2 border-white/60 rounded-full" />,
-    color_bomb: <Sparkles className="absolute w-4 h-4 text-white animate-pulse" />,
+    striped_h: <div className="absolute inset-x-1 top-1/2 h-1 bg-white/60 rounded pointer-events-none" />,
+    striped_v: <div className="absolute inset-y-1 left-1/2 w-1 bg-white/60 rounded pointer-events-none" />,
+    wrapped: <div className="absolute inset-2 border-2 border-white/60 rounded-full pointer-events-none" />,
+    color_bomb: <Sparkles className="absolute w-4 h-4 text-white animate-pulse pointer-events-none" />,
   };
 
   return (
-    <div className="relative w-full h-full">
+    <div 
+      className="relative w-full h-full"
+      data-testid={`gem-cell-${row}-${col}`}
+      onClick={() => onSelect(row, col)}
+      style={{ cursor: 'pointer' }}
+    >
       {/* Ice overlay */}
       {gem.ice && (
         <div className="absolute inset-0 bg-cyan-200/40 rounded-lg border-2 border-cyan-300/60 z-10 flex items-center justify-center pointer-events-none">
@@ -156,27 +161,7 @@ const Gem = ({ gem, row, col, selected, onGemInteract }) => {
         </div>
       )}
       
-      <div
-        data-testid={`gem-cell-${row}-${col}`}
-        className={baseClasses}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onGemInteract(row, col, 'click');
-        }}
-        onMouseDown={(e) => {
-          e.preventDefault();
-          onGemInteract(row, col, 'down');
-        }}
-        onMouseEnter={() => onGemInteract(row, col, 'enter')}
-        onMouseUp={() => onGemInteract(row, col, 'up')}
-        onTouchStart={(e) => {
-          e.preventDefault();
-          onGemInteract(row, col, 'down');
-        }}
-        onTouchEnd={() => onGemInteract(row, col, 'up')}
-        style={{ touchAction: 'none' }}
-      >
+      <div className={baseClasses}>
         {icons[gem.type]}
         {gem.special && specialIndicators[gem.special]}
       </div>
@@ -1154,15 +1139,28 @@ function App() {
 
   // Swap gems
   const swapGems = useCallback(async (row1, col1, row2, col2) => {
-    if (isProcessing) return;
+    console.log('swapGems called:', row1, col1, row2, col2);
+    if (isProcessing) {
+      console.log('Blocked: already processing');
+      return;
+    }
     
     const rowDiff = Math.abs(row1 - row2);
     const colDiff = Math.abs(col1 - col2);
-    if (rowDiff + colDiff !== 1) return;
+    if (rowDiff + colDiff !== 1) {
+      console.log('Blocked: not adjacent');
+      return;
+    }
     
     // Check if either gem is blocked
-    if (board[row1][col1].blocker || board[row2][col2].blocker) return;
-    if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) return;
+    if (board[row1][col1].blocker || board[row2][col2].blocker) {
+      console.log('Blocked: blocker gem');
+      return;
+    }
+    if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) {
+      console.log('Blocked: chained gem');
+      return;
+    }
     
     setIsProcessing(true);
     setSelectedGem(null); // Clear selection immediately
@@ -1174,10 +1172,11 @@ function App() {
     newBoard[row1][col1] = newBoard[row2][col2];
     newBoard[row2][col2] = temp;
     
+    console.log('Board swapped, setting new board');
     setBoard(newBoard);
     
-    // Shorter delay for snappier feel
-    await new Promise(resolve => setTimeout(resolve, 100));
+    // Wait for visual swap
+    await new Promise(resolve => setTimeout(resolve, 150));
     
     // Check if either swapped gem is special
     if (newBoard[row1][col1].special) {
@@ -1189,13 +1188,16 @@ function App() {
     
     // Check for matches
     const matches = findMatches(newBoard);
+    console.log('Matches found:', matches.size);
     
     if (matches.size > 0 || newBoard[row1][col1].matched || newBoard[row2][col2].matched) {
+      console.log('Valid move - processing matches');
       setMovesLeft(prev => prev - 1);
       await processMatches(newBoard, false, { row1, col1, row2, col2 });
     } else {
-      // Invalid move - swap back with short delay
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Invalid move - swap back with delay so user sees it
+      console.log('No matches - reverting swap');
+      await new Promise(resolve => setTimeout(resolve, 200));
       const revertBoard = newBoard.map(row => row.map(gem => ({ ...gem })));
       const temp2 = revertBoard[row1][col1];
       revertBoard[row1][col1] = revertBoard[row2][col2];
@@ -1203,6 +1205,7 @@ function App() {
       setBoard(revertBoard);
     }
     
+    console.log('Swap complete');
     setIsProcessing(false);
   }, [board, isProcessing, findMatches, processMatches, activateSpecialGem]);
 
@@ -1283,58 +1286,54 @@ function App() {
     setIsProcessing(false);
   }, [activePowerUp, board, player?.id, processMatches]);
 
-  // Unified gem interaction handler
-  const handleGemInteract = useCallback((row, col, type) => {
-    if (isProcessing || gameState !== 'playing') return;
-    if (board[row][col].blocker) return;
+  // Simple gem selection handler
+  const handleGemSelect = useCallback((row, col) => {
+    console.log('Gem clicked:', row, col, 'isProcessing:', isProcessing, 'gameState:', gameState);
     
-    if (type === 'click') {
-      // Handle power-up usage
-      if (activePowerUp) {
-        applyPowerUp(row, col);
-        return;
-      }
+    if (isProcessing) {
+      console.log('Blocked: isProcessing');
+      return;
+    }
+    if (gameState !== 'playing') {
+      console.log('Blocked: not playing');
+      return;
+    }
+    if (board[row][col].blocker) {
+      console.log('Blocked: is blocker');
+      return;
+    }
+    
+    // Handle power-up usage
+    if (activePowerUp) {
+      console.log('Using power-up');
+      applyPowerUp(row, col);
+      return;
+    }
+    
+    // If we have a selected gem
+    if (selectedGem) {
+      const rowDiff = Math.abs(row - selectedGem.row);
+      const colDiff = Math.abs(col - selectedGem.col);
       
-      // Handle gem selection and swapping
-      if (selectedGem) {
-        const rowDiff = Math.abs(row - selectedGem.row);
-        const colDiff = Math.abs(col - selectedGem.col);
-        
-        if (rowDiff + colDiff === 1) {
-          // Adjacent gem - swap
-          swapGems(selectedGem.row, selectedGem.col, row, col);
-        } else if (row === selectedGem.row && col === selectedGem.col) {
-          // Same gem - deselect
-          setSelectedGem(null);
-        } else {
-          // Non-adjacent gem - select new one
-          setSelectedGem({ row, col });
-        }
+      console.log('Selected gem exists at', selectedGem.row, selectedGem.col, 'diff:', rowDiff, colDiff);
+      
+      if (row === selectedGem.row && col === selectedGem.col) {
+        // Clicked same gem - deselect
+        console.log('Deselecting');
+        setSelectedGem(null);
+      } else if (rowDiff + colDiff === 1) {
+        // Adjacent gem - swap!
+        console.log('Swapping!');
+        swapGems(selectedGem.row, selectedGem.col, row, col);
       } else {
-        // No selection - select this gem
+        // Not adjacent - select new gem
+        console.log('Selecting new gem');
         setSelectedGem({ row, col });
       }
-    } else if (type === 'down') {
-      // Start drag
-      dragStart.current = { row, col };
-      isDragging.current = true;
-    } else if (type === 'enter' && isDragging.current && dragStart.current) {
-      // Drag entered new cell
-      const { row: startRow, col: startCol } = dragStart.current;
-      if (startRow === row && startCol === col) return;
-      
-      const rowDiff = Math.abs(row - startRow);
-      const colDiff = Math.abs(col - startCol);
-      
-      if (rowDiff + colDiff === 1) {
-        isDragging.current = false;
-        dragStart.current = null;
-        setSelectedGem(null);
-        swapGems(startRow, startCol, row, col);
-      }
-    } else if (type === 'up') {
-      isDragging.current = false;
-      dragStart.current = null;
+    } else {
+      // No selection yet - select this gem
+      console.log('First selection');
+      setSelectedGem({ row, col });
     }
   }, [isProcessing, gameState, board, activePowerUp, selectedGem, swapGems, applyPowerUp]);
 
@@ -1507,7 +1506,7 @@ function App() {
                   row={rowIdx}
                   col={colIdx}
                   selected={selectedGem?.row === rowIdx && selectedGem?.col === colIdx}
-                  onGemInteract={handleGemInteract}
+                  onSelect={handleGemSelect}
                 />
               ))
             )}
