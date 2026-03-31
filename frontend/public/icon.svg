@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1025"/>
+      <stop offset="100%" style="stop-color:#0B0B13"/>
+    </linearGradient>
+    <linearGradient id="gem1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#fcd34d"/>
+      <stop offset="100%" style="stop-color:#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="gem2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#c084fc"/>
+      <stop offset="100%" style="stop-color:#9333ea"/>
+    </linearGradient>
+    <linearGradient id="gem3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#34d399"/>
+      <stop offset="100%" style="stop-color:#059669"/>
+    </linearGradient>
+    <linearGradient id="gem4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#60a5fa"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    <linearGradient id="gem5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f87171"/>
+      <stop offset="100%" style="stop-color:#dc2626"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#bg)"/>
+  
+  <!-- Sparkle decorations -->
+  <circle cx="80" cy="80" r="4" fill="#fbbf24" opacity="0.6"/>
+  <circle cx="432" cy="100" r="3" fill="#a855f7" opacity="0.5"/>
+  <circle cx="100" cy="420" r="3" fill="#22c55e" opacity="0.5"/>
+  <circle cx="400" cy="400" r="4" fill="#3b82f6" opacity="0.6"/>
+  
+  <!-- Main center gem (large yellow diamond) -->
+  <g transform="translate(256, 200)" filter="url(#glow)">
+    <polygon points="0,-80 60,0 0,80 -60,0" fill="url(#gem1)" stroke="#fef3c7" stroke-width="2"/>
+    <polygon points="0,-80 30,-20 0,0 -30,-20" fill="rgba(255,255,255,0.3)"/>
+  </g>
+  
+  <!-- Top left gem (purple) -->
+  <g transform="translate(140, 160)">
+    <polygon points="0,-45 35,0 0,45 -35,0" fill="url(#gem2)" stroke="#e9d5ff" stroke-width="1.5"/>
+    <polygon points="0,-45 17,-12 0,0 -17,-12" fill="rgba(255,255,255,0.25)"/>
+  </g>
+  
+  <!-- Top right gem (green) -->
+  <g transform="translate(372, 160)">
+    <polygon points="0,-45 35,0 0,45 -35,0" fill="url(#gem3)" stroke="#a7f3d0" stroke-width="1.5"/>
+    <polygon points="0,-45 17,-12 0,0 -17,-12" fill="rgba(255,255,255,0.25)"/>
+  </g>
+  
+  <!-- Bottom left gem (blue) -->
+  <g transform="translate(165, 310)">
+    <polygon points="0,-40 30,0 0,40 -30,0" fill="url(#gem4)" stroke="#bfdbfe" stroke-width="1.5"/>
+    <polygon points="0,-40 15,-10 0,0 -15,-10" fill="rgba(255,255,255,0.25)"/>
+  </g>
+  
+  <!-- Bottom right gem (red) -->
+  <g transform="translate(347, 310)">
+    <polygon points="0,-40 30,0 0,40 -30,0" fill="url(#gem5)" stroke="#fecaca" stroke-width="1.5"/>
+    <polygon points="0,-40 15,-10 0,0 -15,-10" fill="rgba(255,255,255,0.25)"/>
+  </g>
+  
+  <!-- "GQ" text at bottom -->
+  <text x="256" y="440" text-anchor="middle" font-family="Arial Black, sans-serif" font-size="72" font-weight="900" fill="#fbbf24" filter="url(#glow)">GQ</text>
+  
+  <!-- Subtle ring around logo -->
+  <circle cx="256" cy="256" r="200" fill="none" stroke="rgba(251,191,36,0.2)" stroke-width="2"/>
+</svg>

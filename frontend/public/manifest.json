@@ -1,0 +1,24 @@
+{
+  "short_name": "Glimmer Quest",
+  "name": "Glimmer Quest: Match 3 Puzzle",
+  "description": "Match gems, create combos & climb the leaderboard!",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#0B0B13",
+  "background_color": "#0B0B13",
+  "orientation": "portrait"
+}
