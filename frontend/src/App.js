@@ -106,7 +106,7 @@ const hasMatchAt = (board, row, col) => {
 };
 
 // Gem component with special effects
-const Gem = ({ gem, row, col, selected, onClick, onDragStart, onDragEnd, onDragEnter }) => {
+const Gem = ({ gem, row, col, selected, onGemInteract }) => {
   if (gem.blocker) {
     return (
       <div 
@@ -143,14 +143,14 @@ const Gem = ({ gem, row, col, selected, onClick, onDragStart, onDragEnd, onDragE
     <div className="relative w-full h-full">
       {/* Ice overlay */}
       {gem.ice && (
-        <div className="absolute inset-0 bg-cyan-200/40 rounded-lg border-2 border-cyan-300/60 z-10 flex items-center justify-center">
+        <div className="absolute inset-0 bg-cyan-200/40 rounded-lg border-2 border-cyan-300/60 z-10 flex items-center justify-center pointer-events-none">
           <Snowflake className="w-4 h-4 text-cyan-200/80" />
         </div>
       )}
       
       {/* Chain overlay */}
       {gem.chain > 0 && (
-        <div className="absolute inset-0 z-20 flex items-center justify-center">
+        <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
           <div className={`absolute inset-1 border-4 ${gem.chain === 2 ? 'border-amber-600' : 'border-amber-400'} rounded-lg opacity-80`} />
           <Link2 className="w-4 h-4 text-amber-300" />
         </div>
@@ -159,12 +159,23 @@ const Gem = ({ gem, row, col, selected, onClick, onDragStart, onDragEnd, onDragE
       <div
         data-testid={`gem-cell-${row}-${col}`}
         className={baseClasses}
-        onClick={() => onClick(row, col)}
-        onMouseDown={() => onDragStart(row, col)}
-        onMouseUp={onDragEnd}
-        onMouseEnter={() => onDragEnter(row, col)}
-        onTouchStart={() => onDragStart(row, col)}
-        onTouchEnd={onDragEnd}
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onGemInteract(row, col, 'click');
+        }}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onGemInteract(row, col, 'down');
+        }}
+        onMouseEnter={() => onGemInteract(row, col, 'enter')}
+        onMouseUp={() => onGemInteract(row, col, 'up')}
+        onTouchStart={(e) => {
+          e.preventDefault();
+          onGemInteract(row, col, 'down');
+        }}
+        onTouchEnd={() => onGemInteract(row, col, 'up')}
+        style={{ touchAction: 'none' }}
       >
         {icons[gem.type]}
         {gem.special && specialIndicators[gem.special]}
@@ -1154,9 +1165,10 @@ function App() {
     if (board[row1][col1].chain > 0 || board[row2][col2].chain > 0) return;
     
     setIsProcessing(true);
+    setSelectedGem(null); // Clear selection immediately
     soundManager.play('swap');
     
-    // Perform swap
+    // Perform swap immediately
     let newBoard = board.map(row => row.map(gem => ({ ...gem })));
     const temp = newBoard[row1][col1];
     newBoard[row1][col1] = newBoard[row2][col2];
@@ -1164,7 +1176,8 @@ function App() {
     
     setBoard(newBoard);
     
-    await new Promise(resolve => setTimeout(resolve, 150));
+    // Shorter delay for snappier feel
+    await new Promise(resolve => setTimeout(resolve, 100));
     
     // Check if either swapped gem is special
     if (newBoard[row1][col1].special) {
@@ -1181,7 +1194,8 @@ function App() {
       setMovesLeft(prev => prev - 1);
       await processMatches(newBoard, false, { row1, col1, row2, col2 });
     } else {
-      // Invalid move - swap back
+      // Invalid move - swap back with short delay
+      await new Promise(resolve => setTimeout(resolve, 100));
       const revertBoard = newBoard.map(row => row.map(gem => ({ ...gem })));
       const temp2 = revertBoard[row1][col1];
       revertBoard[row1][col1] = revertBoard[row2][col2];
@@ -1189,58 +1203,11 @@ function App() {
       setBoard(revertBoard);
     }
     
-    setSelectedGem(null);
     setIsProcessing(false);
   }, [board, isProcessing, findMatches, processMatches, activateSpecialGem]);
 
-  // Handle gem click
-  const handleGemClick = (row, col) => {
-    if (isProcessing || gameState !== 'playing') return;
-    if (board[row][col].blocker) return;
-    
-    if (activePowerUp) {
-      applyPowerUp(row, col);
-      return;
-    }
-    
-    if (selectedGem) {
-      swapGems(selectedGem.row, selectedGem.col, row, col);
-    } else {
-      setSelectedGem({ row, col });
-    }
-  };
-
-  // Drag handlers
-  const handleDragStart = (row, col) => {
-    if (isProcessing || gameState !== 'playing' || activePowerUp) return;
-    if (board[row][col].blocker) return;
-    dragStart.current = { row, col };
-    isDragging.current = true;
-  };
-
-  const handleDragEnter = (row, col) => {
-    if (!isDragging.current || !dragStart.current || isProcessing) return;
-    
-    const { row: startRow, col: startCol } = dragStart.current;
-    if (startRow === row && startCol === col) return;
-    
-    const rowDiff = Math.abs(row - startRow);
-    const colDiff = Math.abs(col - startCol);
-    
-    if (rowDiff + colDiff === 1) {
-      isDragging.current = false;
-      swapGems(startRow, startCol, row, col);
-      dragStart.current = null;
-    }
-  };
-
-  const handleDragEnd = () => {
-    isDragging.current = false;
-    dragStart.current = null;
-  };
-
   // Apply power-up
-  const applyPowerUp = async (row, col) => {
+  const applyPowerUp = useCallback(async (row, col) => {
     if (!activePowerUp) return;
     
     setIsProcessing(true);
@@ -1314,7 +1281,62 @@ function App() {
     
     setActivePowerUp(null);
     setIsProcessing(false);
-  };
+  }, [activePowerUp, board, player?.id, processMatches]);
+
+  // Unified gem interaction handler
+  const handleGemInteract = useCallback((row, col, type) => {
+    if (isProcessing || gameState !== 'playing') return;
+    if (board[row][col].blocker) return;
+    
+    if (type === 'click') {
+      // Handle power-up usage
+      if (activePowerUp) {
+        applyPowerUp(row, col);
+        return;
+      }
+      
+      // Handle gem selection and swapping
+      if (selectedGem) {
+        const rowDiff = Math.abs(row - selectedGem.row);
+        const colDiff = Math.abs(col - selectedGem.col);
+        
+        if (rowDiff + colDiff === 1) {
+          // Adjacent gem - swap
+          swapGems(selectedGem.row, selectedGem.col, row, col);
+        } else if (row === selectedGem.row && col === selectedGem.col) {
+          // Same gem - deselect
+          setSelectedGem(null);
+        } else {
+          // Non-adjacent gem - select new one
+          setSelectedGem({ row, col });
+        }
+      } else {
+        // No selection - select this gem
+        setSelectedGem({ row, col });
+      }
+    } else if (type === 'down') {
+      // Start drag
+      dragStart.current = { row, col };
+      isDragging.current = true;
+    } else if (type === 'enter' && isDragging.current && dragStart.current) {
+      // Drag entered new cell
+      const { row: startRow, col: startCol } = dragStart.current;
+      if (startRow === row && startCol === col) return;
+      
+      const rowDiff = Math.abs(row - startRow);
+      const colDiff = Math.abs(col - startCol);
+      
+      if (rowDiff + colDiff === 1) {
+        isDragging.current = false;
+        dragStart.current = null;
+        setSelectedGem(null);
+        swapGems(startRow, startCol, row, col);
+      }
+    } else if (type === 'up') {
+      isDragging.current = false;
+      dragStart.current = null;
+    }
+  }, [isProcessing, gameState, board, activePowerUp, selectedGem, swapGems, applyPowerUp]);
 
   // Toggle power-up selection
   const togglePowerUp = (type) => {
@@ -1485,10 +1507,7 @@ function App() {
                   row={rowIdx}
                   col={colIdx}
                   selected={selectedGem?.row === rowIdx && selectedGem?.col === colIdx}
-                  onClick={handleGemClick}
-                  onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
-                  onDragEnter={handleDragEnter}
+                  onGemInteract={handleGemInteract}
                 />
               ))
             )}
