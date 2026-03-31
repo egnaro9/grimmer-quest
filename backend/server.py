@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -6,10 +6,11 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 import random
+from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -31,6 +32,17 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# ============ STRIPE PACKAGES ============
+# Fixed packages - amounts defined server-side only for security
+IAP_PACKAGES = {
+    "coins_small": {"name": "500 Coins", "coins": 500, "amount": 0.99, "currency": "usd"},
+    "coins_medium": {"name": "2500 Coins", "coins": 2500, "amount": 4.99, "currency": "usd"},
+    "coins_large": {"name": "6000 Coins", "coins": 6000, "amount": 9.99, "currency": "usd"},
+    "lives_pack": {"name": "10 Lives", "lives": 10, "amount": 1.99, "currency": "usd"},
+    "starter_pack": {"name": "Starter Pack", "coins": 1000, "lives": 5, "power_ups": {"hammer": 5, "shuffle": 5, "color_bomb": 3}, "amount": 4.99, "currency": "usd"},
+    "remove_ads": {"name": "Remove Ads Forever", "remove_ads": True, "amount": 2.99, "currency": "usd"},
+}
 
 # ============ MODELS ============
 
@@ -391,6 +403,222 @@ async def watch_ad_for_reward(player_id: str, reward_type: str = "coins"):
         return {"success": True, "reward_type": "life", "amount": 1}
     
     raise HTTPException(status_code=400, detail="Invalid reward type")
+
+# ============ STRIPE PAYMENT ENDPOINTS ============
+
+class CheckoutRequest(BaseModel):
+    package_id: str
+    player_id: str
+    origin_url: str
+
+class PaymentTransaction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    player_id: str
+    package_id: str
+    amount: float
+    currency: str
+    status: str = "pending"
+    payment_status: str = "initiated"
+    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    completed_at: Optional[str] = None
+
+@api_router.get("/iap/packages")
+async def get_iap_packages():
+    """Get available in-app purchase packages"""
+    packages = []
+    for pkg_id, pkg in IAP_PACKAGES.items():
+        packages.append({
+            "id": pkg_id,
+            "name": pkg["name"],
+            "amount": pkg["amount"],
+            "currency": pkg["currency"],
+            "description": get_package_description(pkg)
+        })
+    return packages
+
+def get_package_description(pkg):
+    parts = []
+    if "coins" in pkg:
+        parts.append(f"{pkg['coins']} Coins")
+    if "lives" in pkg:
+        parts.append(f"{pkg['lives']} Lives")
+    if "power_ups" in pkg:
+        parts.append("+ Power-ups")
+    if "remove_ads" in pkg:
+        parts.append("No more ads!")
+    return " • ".join(parts) if parts else pkg["name"]
+
+@api_router.post("/iap/checkout")
+async def create_checkout_session(request: CheckoutRequest, http_request: Request):
+    """Create a Stripe checkout session for a package"""
+    # Validate package exists
+    if request.package_id not in IAP_PACKAGES:
+        raise HTTPException(status_code=400, detail="Invalid package")
+    
+    # Validate player exists
+    player = await db.players.find_one({"id": request.player_id}, {"_id": 0})
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    package = IAP_PACKAGES[request.package_id]
+    
+    # Initialize Stripe
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Payment system not configured")
+    
+    host_url = str(http_request.base_url).rstrip('/')
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    
+    # Build URLs from provided origin
+    success_url = f"{request.origin_url}/payment-success?session_id={{CHECKOUT_SESSION_ID}}"
+    cancel_url = f"{request.origin_url}/payment-cancel"
+    
+    # Create checkout session
+    checkout_request = CheckoutSessionRequest(
+        amount=package["amount"],
+        currency=package["currency"],
+        success_url=success_url,
+        cancel_url=cancel_url,
+        metadata={
+            "player_id": request.player_id,
+            "package_id": request.package_id,
+            "package_name": package["name"]
+        }
+    )
+    
+    try:
+        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
+        
+        # Create payment transaction record BEFORE redirect
+        transaction = PaymentTransaction(
+            session_id=session.session_id,
+            player_id=request.player_id,
+            package_id=request.package_id,
+            amount=package["amount"],
+            currency=package["currency"]
+        )
+        await db.payment_transactions.insert_one(transaction.model_dump())
+        
+        return {"url": session.url, "session_id": session.session_id}
+    except Exception as e:
+        logger.error(f"Stripe checkout error: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create checkout session")
+
+@api_router.get("/iap/status/{session_id}")
+async def get_payment_status(session_id: str):
+    """Check payment status and fulfill if completed"""
+    # Find transaction
+    transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    
+    # If already completed, return status
+    if transaction.get("payment_status") == "paid":
+        return {"status": "complete", "payment_status": "paid", "already_processed": True}
+    
+    # Check with Stripe
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Payment system not configured")
+    
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    
+    try:
+        status: CheckoutStatusResponse = await stripe_checkout.get_checkout_status(session_id)
+        
+        # Update transaction status
+        await db.payment_transactions.update_one(
+            {"session_id": session_id},
+            {"$set": {"status": status.status, "payment_status": status.payment_status}}
+        )
+        
+        # If paid, fulfill the purchase (only once)
+        if status.payment_status == "paid" and transaction.get("payment_status") != "paid":
+            await fulfill_purchase(transaction["player_id"], transaction["package_id"])
+            await db.payment_transactions.update_one(
+                {"session_id": session_id},
+                {"$set": {"completed_at": datetime.now(timezone.utc).isoformat()}}
+            )
+        
+        return {
+            "status": status.status,
+            "payment_status": status.payment_status,
+            "amount": status.amount_total / 100,  # Convert cents to dollars
+            "currency": status.currency
+        }
+    except Exception as e:
+        logger.error(f"Error checking payment status: {e}")
+        raise HTTPException(status_code=500, detail="Failed to check payment status")
+
+async def fulfill_purchase(player_id: str, package_id: str):
+    """Add purchased items to player account"""
+    package = IAP_PACKAGES.get(package_id)
+    if not package:
+        return
+    
+    player = await db.players.find_one({"id": player_id}, {"_id": 0})
+    if not player:
+        return
+    
+    updates = {}
+    
+    if "coins" in package:
+        updates["coins"] = player.get("coins", 0) + package["coins"]
+    
+    if "lives" in package:
+        updates["lives"] = min(player.get("lives", 0) + package["lives"], player.get("max_lives", 5) + 10)
+    
+    if "power_ups" in package:
+        current_power_ups = player.get("power_ups", {})
+        for pu, qty in package["power_ups"].items():
+            current_power_ups[pu] = current_power_ups.get(pu, 0) + qty
+        updates["power_ups"] = current_power_ups
+    
+    if "remove_ads" in package:
+        updates["ads_removed"] = True
+    
+    if updates:
+        await db.players.update_one({"id": player_id}, {"$set": updates})
+        logger.info(f"Fulfilled purchase for player {player_id}: {package_id}")
+
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    """Handle Stripe webhooks"""
+    body = await request.body()
+    signature = request.headers.get("Stripe-Signature")
+    
+    api_key = os.environ.get("STRIPE_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="Payment system not configured")
+    
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url="")
+    
+    try:
+        webhook_response = await stripe_checkout.handle_webhook(body, signature)
+        
+        if webhook_response.payment_status == "paid":
+            # Find and fulfill the transaction
+            session_id = webhook_response.session_id
+            transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
+            
+            if transaction and transaction.get("payment_status") != "paid":
+                await fulfill_purchase(transaction["player_id"], transaction["package_id"])
+                await db.payment_transactions.update_one(
+                    {"session_id": session_id},
+                    {"$set": {
+                        "status": "complete",
+                        "payment_status": "paid",
+                        "completed_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+        
+        return {"received": True}
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+        return {"received": True, "error": str(e)}
 
 # Include the router in the main app
 app.include_router(api_router)

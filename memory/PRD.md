@@ -1,91 +1,71 @@
 # Glimmer Quest - Match-3 Puzzle Game PRD
 
 ## Original Problem Statement
-Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue. User requested:
-1. Rename from "Gem Crush" to "Glimmer Quest" (verified unique name)
-2. AdMob integration for monetization
-3. Sound effects and polish
-4. All gameplay enhancements (special gems, obstacles, achievements)
+Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, ready for Play Store launch.
 
 ## Architecture
-- **Frontend**: React + Tailwind CSS + Howler.js (sounds)
-- **Backend**: FastAPI + MongoDB
-- **Monetization**: Lives system, IAP shop, daily rewards, AdMob ads (configured, needs publisher ID)
-
-## User Personas
-1. **Casual Gamer**: Quick sessions, wants satisfying gameplay
-2. **Completionist**: Driven by levels, achievements, high scores
-3. **Spender**: Willing to pay for lives/power-ups to progress faster
-
-## Core Requirements (Static)
-- Match-3 gem swapping mechanics
-- Lives system with time-based regeneration
-- Coins & power-ups (Hammer, Shuffle, Color Bomb)
-- Daily reward streak system (7 days)
-- Leaderboard
-- Progressive difficulty levels
-- Rewarded ads for free currency
+- **Frontend**: React + Tailwind CSS + Howler.js + Capacitor (mobile)
+- **Backend**: FastAPI + MongoDB + Stripe
+- **Monetization**: Lives system, IAP via Stripe, AdMob ads (configured)
 
 ## What's Been Implemented (March 31, 2026)
 
-### Phase 1 - MVP ✅
-- Full Match-3 game mechanics (swap, match, cascade, score)
+### Core Game ✅
+- Match-3 mechanics (swap, match, cascade - max 10)
 - 8x8 gem board with 5 gem types
+- Special gems (striped, wrapped, color bomb)
+- Level obstacles (ice, chains, blockers)
+- Progressive difficulty levels
+
+### Monetization ✅
 - Lives system (5 max, 30-min regen)
-- Coins & power-ups shop
-- Daily rewards (7-day streak calendar)
-- Leaderboard API & UI
-- Simulated ad watching for rewards
-- Player persistence (MongoDB)
-- Beautiful UI with glassmorphism & 3D gems
+- **Stripe Integration**: Real money purchases
+  - $0.99 - 500 Coins
+  - $4.99 - 2500 Coins  
+  - $9.99 - 6000 Coins
+  - $1.99 - 10 Lives
+  - $4.99 - Starter Pack
+  - $2.99 - Remove Ads Forever
+- In-game coin purchases for power-ups
+- AdMob ready (needs publisher ID)
+- Watch-ad rewards (simulated)
 
-### Phase 2 - Enhancements ✅
-- **Renamed to "Glimmer Quest"** - verified unique name for app stores
-- **AdMob Integration** - Ad Placement API configured (needs publisher ID to activate)
-- **Sound Effects** - Howler.js integration with match/combo/powerup sounds
-- **Special Gems**:
-  - Striped (horizontal/vertical) - Match 4 gems
-  - Wrapped - L/T shape matches
-  - Color Bomb - Match 5+ gems
-- **Level Obstacles**:
-  - Ice - First match removes ice layer
-  - Chains (1-2 layers) - Reduce chain count with matches
-  - Blockers - Immovable obstacles
-- **Achievements System** - 8 achievements with unlock tracking
-- **Watch Ad to Continue** - +5 moves on game over
+### Engagement ✅
+- Daily rewards (7-day streak)
+- Achievements system
+- Leaderboard
+- Sound effects
 
-## Prioritized Backlog
+### Mobile Ready ✅
+- Capacitor configured for Android/iOS
+- Touch-optimized controls
+- Responsive design
 
-### P0 (Critical for Revenue) - Ready to Activate
-- [ ] Get AdMob/AdSense Publisher ID and activate real ads
-- [ ] Stripe integration for real in-app purchases
+### Store Assets Created ✅
+- `/app/store_assets/README.md` - App descriptions, keywords
+- `/app/store_assets/PRIVACY_POLICY.md` - Privacy policy template
 
-### P1 (Engagement)
-- [ ] Background music
-- [ ] More achievement types
-- [ ] Social sharing (share scores)
-- [ ] Push notifications for lives regeneration
+## Launch Checklist
 
-### P2 (Nice to Have)
-- [ ] Boosters at level start
-- [ ] Lives gifting between friends
-- [ ] Seasonal events/themes
-- [ ] More obstacle types (bombs, teleports)
+### Before Play Store Submission
+- [ ] Get AdMob Publisher ID → Update `/app/frontend/public/index.html`
+- [ ] Fill in Privacy Policy contact email
+- [ ] Create app icon (512x512 PNG)
+- [ ] Take 5+ screenshots
+- [ ] Create feature graphic (1024x500)
+- [ ] Build Android APK: `cd frontend && npm run build && npx cap add android && npx cap open android`
+- [ ] Sign APK with release keystore
+- [ ] Create Google Play Developer account ($25)
+- [ ] Host Privacy Policy (GitHub Pages works)
 
-## Technical Notes
+### Production Deployment
+- [ ] Deploy backend to cloud (Railway recommended)
+- [ ] Update frontend env with production backend URL
+- [ ] Set up production MongoDB (MongoDB Atlas)
+- [ ] Configure Stripe webhook URL for production
 
-### AdMob Setup Required
-1. Create AdSense account at https://www.google.com/adsense/
-2. Get Publisher ID (ca-pub-XXXXXXXX)
-3. Edit `/app/frontend/public/index.html`:
-   - Replace `ca-pub-YOUR_PUBLISHER_ID` with actual ID
-   - Uncomment the AdSense script tags
-   - Remove `data-adbreak-test="on"` for production
-
-### Sound Files
-Using CDN-hosted sounds from freesound.org. If CORS issues occur, sounds gracefully degrade (game continues without sound).
-
-## Next Tasks
-1. Get AdMob publisher ID and test real ads
-2. Add background music loop
-3. Create more level variety with new obstacles
+## Files Reference
+- Backend: `/app/backend/server.py`
+- Frontend: `/app/frontend/src/App.js`
+- Capacitor: `/app/frontend/capacitor.config.json`
+- Store Assets: `/app/store_assets/`

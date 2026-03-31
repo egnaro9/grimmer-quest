@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2 } from "lucide-react";
+import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
 import { useAdPlacement } from "./hooks/useAdPlacement";
 
@@ -468,8 +468,10 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
 };
 
 // Shop Modal
-const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd, isWatchingAd }) => {
-  const items = [
+const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd, isWatchingAd, onRealPurchase, iapPackages, isPurchasing }) => {
+  const [activeTab, setActiveTab] = useState('coins'); // 'coins' or 'real'
+  
+  const coinItems = [
     { id: 'lives', name: '+5 Lives', price: prices.lives * 5, icon: Heart, color: 'text-red-400', qty: 5 },
     { id: 'hammer', name: 'Hammer x3', price: prices.hammer * 3, icon: Hammer, color: 'text-amber-400', qty: 3 },
     { id: 'shuffle', name: 'Shuffle x3', price: prices.shuffle * 3, icon: Shuffle, color: 'text-blue-400', qty: 3 },
@@ -478,72 +480,120 @@ const ShopModal = ({ player, prices, onClose, onPurchase, onWatchAd, isWatchingA
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
+      <div className="modal-content max-w-md" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
           <h2 className="font-heading text-3xl font-bold text-white">Shop</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex items-center justify-center gap-2 mb-6 p-3 bg-black/30 rounded-lg">
-          <Coins className="w-6 h-6 text-amber-400" />
-          <span className="text-xl font-bold text-white">{(player?.coins || 0).toLocaleString()}</span>
+        {/* Tab Selector */}
+        <div className="flex gap-2 mb-4">
+          <button
+            className={`flex-1 py-2 px-4 rounded-lg font-bold transition-all ${activeTab === 'coins' ? 'bg-amber-500 text-black' : 'bg-white/10 text-white'}`}
+            onClick={() => setActiveTab('coins')}
+          >
+            <Coins className="w-4 h-4 inline mr-1" /> Coins
+          </button>
+          <button
+            className={`flex-1 py-2 px-4 rounded-lg font-bold transition-all ${activeTab === 'real' ? 'bg-emerald-500 text-white' : 'bg-white/10 text-white'}`}
+            onClick={() => setActiveTab('real')}
+          >
+            <CreditCard className="w-4 h-4 inline mr-1" /> Buy
+          </button>
         </div>
 
-        <div className="space-y-3 mb-6">
-          {items.map(item => {
-            const Icon = item.icon;
-            const canAfford = (player?.coins || 0) >= item.price;
+        {activeTab === 'coins' && (
+          <>
+            <div className="flex items-center justify-center gap-2 mb-4 p-3 bg-black/30 rounded-lg">
+              <Coins className="w-6 h-6 text-amber-400" />
+              <span className="text-xl font-bold text-white">{(player?.coins || 0).toLocaleString()}</span>
+            </div>
+
+            <div className="space-y-2 mb-4 max-h-48 overflow-y-auto">
+              {coinItems.map(item => {
+                const Icon = item.icon;
+                const canAfford = (player?.coins || 0) >= item.price;
+                
+                return (
+                  <button
+                    key={item.id}
+                    data-testid={`buy-${item.id}`}
+                    className={`w-full flex items-center justify-between p-3 rounded-xl transition-all ${canAfford ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-50'}`}
+                    onClick={() => canAfford && onPurchase(item.id, item.qty)}
+                    disabled={!canAfford}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Icon className={`w-6 h-6 ${item.color}`} />
+                      <span className="text-white font-bold text-sm">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-amber-400">
+                      <Coins className="w-4 h-4" />
+                      <span className="font-bold">{item.price}</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="border-t border-white/10 pt-3">
+              <p className="text-slate-400 text-xs text-center mb-2">Free Rewards (Watch Ad)</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  data-testid="watch-ad-coins"
+                  className="btn-3d btn-3d-green text-xs py-2"
+                  onClick={() => onWatchAd('coins')}
+                  disabled={isWatchingAd}
+                >
+                  {isWatchingAd ? 'Loading...' : <>
+                    <Coins className="w-3 h-3 inline mr-1" />
+                    +20-50 Coins
+                  </>}
+                </button>
+                <button
+                  data-testid="watch-ad-life"
+                  className="btn-3d btn-3d-red text-xs py-2"
+                  onClick={() => onWatchAd('life')}
+                  disabled={isWatchingAd}
+                >
+                  {isWatchingAd ? 'Loading...' : <>
+                    <Heart className="w-3 h-3 inline mr-1" />
+                    +1 Life
+                  </>}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {activeTab === 'real' && (
+          <div className="space-y-3">
+            <p className="text-slate-400 text-sm text-center mb-2">Real Money Purchases</p>
             
-            return (
+            {iapPackages.map(pkg => (
               <button
-                key={item.id}
-                data-testid={`buy-${item.id}`}
-                className={`w-full flex items-center justify-between p-4 rounded-xl transition-all ${canAfford ? 'bg-white/10 hover:bg-white/20' : 'bg-white/5 opacity-50'}`}
-                onClick={() => canAfford && onPurchase(item.id, item.qty)}
-                disabled={!canAfford}
+                key={pkg.id}
+                data-testid={`iap-${pkg.id}`}
+                className="w-full flex items-center justify-between p-4 rounded-xl bg-gradient-to-r from-emerald-600/20 to-emerald-500/10 border border-emerald-500/30 hover:border-emerald-400 transition-all"
+                onClick={() => onRealPurchase(pkg.id)}
+                disabled={isPurchasing}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-8 h-8 ${item.color}`} />
-                  <span className="text-white font-bold">{item.name}</span>
+                <div className="flex flex-col items-start">
+                  <span className="text-white font-bold">{pkg.name}</span>
+                  <span className="text-slate-400 text-xs">{pkg.description}</span>
                 </div>
-                <div className="flex items-center gap-1 text-amber-400">
-                  <Coins className="w-4 h-4" />
-                  <span className="font-bold">{item.price}</span>
+                <div className="flex items-center gap-1 bg-emerald-500 text-white px-3 py-1 rounded-full font-bold">
+                  {isPurchasing ? <Loader2 className="w-4 h-4 animate-spin" /> : `$${pkg.amount.toFixed(2)}`}
                 </div>
               </button>
-            );
-          })}
-        </div>
-
-        <div className="border-t border-white/10 pt-4">
-          <p className="text-slate-400 text-sm text-center mb-3">Free Rewards (Watch Ad)</p>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              data-testid="watch-ad-coins"
-              className="btn-3d btn-3d-green text-sm py-3"
-              onClick={() => onWatchAd('coins')}
-              disabled={isWatchingAd}
-            >
-              {isWatchingAd ? 'Loading...' : <>
-                <Coins className="w-4 h-4 inline mr-1" />
-                +20-50 Coins
-              </>}
-            </button>
-            <button
-              data-testid="watch-ad-life"
-              className="btn-3d btn-3d-red text-sm py-3"
-              onClick={() => onWatchAd('life')}
-              disabled={isWatchingAd}
-            >
-              {isWatchingAd ? 'Loading...' : <>
-                <Heart className="w-4 h-4 inline mr-1" />
-                +1 Life
-              </>}
-            </button>
+            ))}
+            
+            <p className="text-slate-500 text-xs text-center mt-2">
+              Secure payment powered by Stripe
+            </p>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -845,9 +895,12 @@ function App() {
   const [showDailyReward, setShowDailyReward] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
+  const [showPaymentResult, setShowPaymentResult] = useState(null); // 'success' | 'cancel' | null
   const [shopPrices, setShopPrices] = useState({});
   const [dailyRewardStatus, setDailyRewardStatus] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [iapPackages, setIapPackages] = useState([]);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   
   // Drag state
   const dragStart = useRef(null);
@@ -860,9 +913,35 @@ function App() {
     soundManager.setMuted(!newSoundOn);
   };
 
-  // Load shop prices
+  // Load shop prices and IAP packages
   useEffect(() => {
     axios.get(`${API}/shop/prices`).then(res => setShopPrices(res.data)).catch(console.error);
+    axios.get(`${API}/iap/packages`).then(res => setIapPackages(res.data)).catch(console.error);
+  }, []);
+
+  // Check for payment result on URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sessionId = urlParams.get('session_id');
+    
+    if (window.location.pathname === '/payment-success' && sessionId) {
+      // Verify payment and show success
+      axios.get(`${API}/iap/status/${sessionId}`)
+        .then(res => {
+          if (res.data.payment_status === 'paid') {
+            setShowPaymentResult('success');
+            refreshPlayer();
+          }
+        })
+        .catch(console.error)
+        .finally(() => {
+          // Clean URL
+          window.history.replaceState({}, '', '/');
+        });
+    } else if (window.location.pathname === '/payment-cancel') {
+      setShowPaymentResult('cancel');
+      window.history.replaceState({}, '', '/');
+    }
   }, []);
 
   // Create or load player
@@ -1437,6 +1516,29 @@ function App() {
     setIsWatchingAd(false);
   };
 
+  // Handle real money purchase
+  const handleRealPurchase = async (packageId) => {
+    if (!player?.id) return;
+    
+    setIsPurchasing(true);
+    try {
+      const res = await axios.post(`${API}/iap/checkout`, {
+        package_id: packageId,
+        player_id: player.id,
+        origin_url: window.location.origin
+      });
+      
+      if (res.data.url) {
+        // Redirect to Stripe checkout
+        window.location.href = res.data.url;
+      }
+    } catch (err) {
+      console.error('Purchase error:', err);
+      alert('Failed to start checkout. Please try again.');
+    }
+    setIsPurchasing(false);
+  };
+
   // Claim daily reward
   const handleClaimDailyReward = async () => {
     soundManager.play('buttonClick');
@@ -1605,7 +1707,37 @@ function App() {
           onPurchase={handlePurchase}
           onWatchAd={handleWatchAd}
           isWatchingAd={isWatchingAd}
+          onRealPurchase={handleRealPurchase}
+          iapPackages={iapPackages}
+          isPurchasing={isPurchasing}
         />
+      )}
+      
+      {/* Payment Result Modal */}
+      {showPaymentResult && (
+        <div className="modal-overlay" onClick={() => setShowPaymentResult(null)}>
+          <div className="modal-content text-center" onClick={e => e.stopPropagation()}>
+            {showPaymentResult === 'success' ? (
+              <>
+                <CheckCircle className="w-16 h-16 text-emerald-400 mx-auto mb-4" />
+                <h2 className="font-heading text-2xl font-bold text-white mb-2">Purchase Complete!</h2>
+                <p className="text-slate-400 mb-4">Your items have been added to your account.</p>
+              </>
+            ) : (
+              <>
+                <XCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+                <h2 className="font-heading text-2xl font-bold text-white mb-2">Purchase Cancelled</h2>
+                <p className="text-slate-400 mb-4">No charges were made.</p>
+              </>
+            )}
+            <button
+              className="btn-3d btn-3d-gold w-full"
+              onClick={() => setShowPaymentResult(null)}
+            >
+              Continue
+            </button>
+          </div>
+        </div>
       )}
       
       {showDailyReward && (

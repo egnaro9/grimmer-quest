@@ -1,0 +1,15 @@
+{
+  "appId": "com.glimmerquest.game",
+  "appName": "Glimmer Quest",
+  "webDir": "build",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0B0B13",
+      "showSpinner": false
+    }
+  }
+}
