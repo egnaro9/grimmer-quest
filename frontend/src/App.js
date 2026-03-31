@@ -41,39 +41,127 @@ const ACHIEVEMENTS = [
 // Create initial board with obstacles
 const createBoard = (level = 1) => {
   const config = LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)];
-  const board = [];
+  let board;
+  let attempts = 0;
   
-  for (let row = 0; row < BOARD_SIZE; row++) {
-    const rowArr = [];
-    for (let col = 0; col < BOARD_SIZE; col++) {
-      const gem = {
-        type: GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
-        id: `${row}-${col}-${Date.now()}-${Math.random()}`,
-        matched: false,
-        falling: false,
-        special: null,
-        ice: false,
-        chain: 0,
-        blocker: false,
-      };
-      
-      // Add random obstacles based on level config
-      if (config.obstacles.includes('ice') && Math.random() < 0.15) {
-        gem.ice = true;
+  do {
+    board = [];
+    for (let row = 0; row < BOARD_SIZE; row++) {
+      const rowArr = [];
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const gem = {
+          type: GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
+          id: `${row}-${col}-${Date.now()}-${Math.random()}`,
+          matched: false,
+          falling: false,
+          special: null,
+          ice: false,
+          chain: 0,
+          blocker: false,
+        };
+        
+        // Add random obstacles based on level config (reduced for playability)
+        if (config.obstacles.includes('ice') && Math.random() < 0.08) {
+          gem.ice = true;
+        }
+        if (config.obstacles.includes('chain') && Math.random() < 0.05) {
+          gem.chain = 1;
+        }
+        if (config.obstacles.includes('blocker') && Math.random() < 0.02) {
+          gem.blocker = true;
+          gem.type = 'blocker';
+        }
+        
+        rowArr.push(gem);
       }
-      if (config.obstacles.includes('chain') && Math.random() < 0.1) {
-        gem.chain = Math.random() < 0.5 ? 1 : 2;
-      }
-      if (config.obstacles.includes('blocker') && Math.random() < 0.05) {
-        gem.blocker = true;
-        gem.type = 'blocker';
-      }
-      
-      rowArr.push(gem);
+      board.push(rowArr);
     }
-    board.push(rowArr);
+    board = removeInitialMatches(board);
+    board = ensureValidMoves(board);
+    attempts++;
+  } while (!hasAnyValidMove(board) && attempts < 10);
+  
+  return board;
+};
+
+// Ensure there are valid moves by creating some deliberate patterns
+const ensureValidMoves = (board) => {
+  // Add a few guaranteed valid move setups
+  const setupPositions = [
+    { row: 2, col: 2 }, // Near top-left
+    { row: 5, col: 5 }, // Near bottom-right
+  ];
+  
+  setupPositions.forEach(pos => {
+    const { row, col } = pos;
+    if (row + 2 < BOARD_SIZE && col + 1 < BOARD_SIZE) {
+      // Don't modify blockers
+      if (board[row][col].blocker || board[row+1][col].blocker || board[row+2][col].blocker || board[row+1][col+1].blocker) return;
+      
+      // Create a setup where swapping creates a vertical match
+      // Pattern:  X A
+      //           X .
+      //           A .   (swap A up to create XXX)
+      const gemType = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
+      board[row][col].type = gemType;
+      board[row+1][col].type = gemType;
+      // The piece to swap is at row+2, col or row+1, col+1
+      board[row+1][col+1].type = gemType;
+    }
+  });
+  
+  return board;
+};
+
+// Check if any valid move exists
+const hasAnyValidMove = (board) => {
+  for (let row = 0; row < BOARD_SIZE; row++) {
+    for (let col = 0; col < BOARD_SIZE; col++) {
+      if (board[row][col].blocker) continue;
+      
+      // Check swap right
+      if (col + 1 < BOARD_SIZE && !board[row][col+1].blocker) {
+        if (wouldCreateMatch(board, row, col, row, col + 1)) return true;
+      }
+      // Check swap down
+      if (row + 1 < BOARD_SIZE && !board[row+1][col].blocker) {
+        if (wouldCreateMatch(board, row, col, row + 1, col)) return true;
+      }
+    }
   }
-  return removeInitialMatches(board);
+  return false;
+};
+
+// Check if swapping two positions would create a match
+const wouldCreateMatch = (board, row1, col1, row2, col2) => {
+  // Temporarily swap
+  const tempBoard = board.map(r => r.map(g => ({ ...g })));
+  const temp = tempBoard[row1][col1];
+  tempBoard[row1][col1] = tempBoard[row2][col2];
+  tempBoard[row2][col2] = temp;
+  
+  // Check if either position now has a match
+  return checkMatchAt(tempBoard, row1, col1) || checkMatchAt(tempBoard, row2, col2);
+};
+
+// Check if there's a match at a specific position
+const checkMatchAt = (board, row, col) => {
+  const type = board[row][col].type;
+  if (type === 'blocker') return false;
+  
+  // Check horizontal
+  let hCount = 1;
+  for (let c = col - 1; c >= 0 && board[row][c].type === type; c--) hCount++;
+  for (let c = col + 1; c < BOARD_SIZE && board[row][c].type === type; c++) hCount++;
+  if (hCount >= 3) return true;
+  
+  // Check vertical
+  let vCount = 1;
+  for (let r = row - 1; r >= 0 && board[r][col].type === type; r--) vCount++;
+  for (let r = row + 1; r < BOARD_SIZE && board[r][col].type === type; r++) vCount++;
+  if (vCount >= 3) return true;
+  
+  return false;
 };
 
 const removeInitialMatches = (board) => {
@@ -903,6 +991,13 @@ function App() {
   const findMatches = useCallback((currentBoard) => {
     const matches = new Map(); // key -> { positions: [], length: number, direction: 'h' | 'v' }
     
+    // Debug: Log board state
+    console.log('Checking for matches on board:');
+    for (let r = 0; r < BOARD_SIZE; r++) {
+      const rowTypes = currentBoard[r].map(g => g.type[0]).join(' ');
+      console.log(`Row ${r}: ${rowTypes}`);
+    }
+    
     // Check horizontal matches
     for (let row = 0; row < BOARD_SIZE; row++) {
       let matchStart = 0;
@@ -913,6 +1008,7 @@ function App() {
         if (currType !== prevType || col === BOARD_SIZE || prevType === 'blocker') {
           const matchLength = col - matchStart;
           if (matchLength >= 3 && prevType !== 'blocker') {
+            console.log(`Found horizontal match: row ${row}, cols ${matchStart}-${col-1}, type ${prevType}, length ${matchLength}`);
             for (let i = matchStart; i < col; i++) {
               const key = `${row}-${i}`;
               if (!matches.has(key)) {
