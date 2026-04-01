@@ -8,14 +8,15 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 - **Backend**: FastAPI + MongoDB + Stripe
 - **Monetization**: Lives system, IAP via Stripe, AdMob ads (configured)
 
-## What's Been Implemented (March 31, 2026)
+## What's Been Implemented (April 1, 2026)
 
 ### Core Game ✅
-- Match-3 mechanics (swap, match, cascade - max 10)
-- 8x8 gem board with 5 gem types
-- Special gems (striped, wrapped, color bomb)
+- Match-3 mechanics (swap, match, cascade - max 15 cascades)
+- 8x8 gem board with 5 gem types (red, blue, green, yellow, purple)
+- Special gems (striped_h, striped_v, wrapped, color_bomb)
 - Level obstacles (ice, chains, blockers)
-- Progressive difficulty levels
+- Progressive difficulty levels (10 levels)
+- Safety loop in processMatches to ensure no uncleared matches after cascades
 
 ### Monetization ✅
 - Lives system (5 max, 30-min regen)
@@ -34,7 +35,7 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 - Daily rewards (7-day streak)
 - Achievements system
 - Leaderboard
-- Sound effects
+- Sound effects (via Howler.js)
 
 ### Mobile Ready ✅
 - Capacitor configured for Android/iOS
@@ -44,6 +45,25 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 ### Store Assets Created ✅
 - `/app/store_assets/README.md` - App descriptions, keywords
 - `/app/store_assets/PRIVACY_POLICY.md` - Privacy policy template
+
+## Bug Fixes (April 1, 2026)
+
+### FIXED: Gems Grouping Without Disappearing
+- **Issue**: After cascades, 4+ gems would sometimes remain grouped without matching
+- **Root Cause**: processMatches function wasn't fully processing all cascading matches
+- **Fix Applied**: Added safety check loop (lines 1219-1267 in App.js) that:
+  - Continues processing matches until board is truly stable
+  - Runs up to 3 additional passes to catch edge cases
+- **Verification**: Tested 25+ swaps - no uncleared matches found
+
+### FIXED: Modal Overlay Blocking Clicks
+- **Issue**: Modal overlays intercepting pointer events after modal closed
+- **Status**: Verified working - modals open/close without blocking game board
+
+## Test Reports
+- `/app/test_reports/iteration_4.json` - Latest (100% pass rate)
+- Backend: 20/20 API tests passed
+- Frontend: All game mechanics verified working
 
 ## Launch Checklist
 
@@ -69,3 +89,33 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 - Frontend: `/app/frontend/src/App.js`
 - Capacitor: `/app/frontend/capacitor.config.json`
 - Store Assets: `/app/store_assets/`
+- Test Reports: `/app/test_reports/`
+
+## Code Architecture
+```
+/app/
+├── backend/
+│   ├── server.py             # FastAPI backend (Player state, Shop, Stripe endpoints)
+│   ├── requirements.txt
+│   ├── tests/                # pytest tests
+│   └── .env
+├── frontend/
+│   ├── public/               # index.html (AdMob script), manifest.json, icons
+│   ├── src/
+│   │   ├── App.js            # React Match-3 Game Engine + UI (~1800 lines)
+│   │   ├── hooks/            # useAdPlacement
+│   │   ├── utils/            # soundManager
+│   │   └── index.css         # Animations (matchPop, specialPulse)
+│   ├── android/              # Capacitor Android project files
+│   └── capacitor.config.json
+├── store_assets/             # PRIVACY_POLICY.md, README.md
+├── test_reports/
+└── memory/
+```
+
+## Backlog (P2)
+- Refactor App.js into smaller components/hooks
+- Implement Stripe Webhooks for production
+- Polish app icons
+- Add more levels (currently 10)
+- Add tutorial for new players
