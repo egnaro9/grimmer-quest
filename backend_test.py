@@ -234,6 +234,10 @@ class GemCrushAPITester:
             params={"player_id": self.test_player_id, "reward_type": "life"}
         )[0]
 
+    def test_iap_packages(self):
+        """Test IAP packages endpoint"""
+        return self.run_test("IAP Packages", "GET", "iap/packages", 200)[0]
+
     def test_error_cases(self):
         """Test error handling"""
         print("\n🔍 Testing Error Cases...")
@@ -314,6 +318,10 @@ class GemCrushAPITester:
         
         if not self.test_watch_ad_life():
             print("❌ Watch ad for life failed")
+        
+        # IAP packages (Stripe)
+        if not self.test_iap_packages():
+            print("❌ IAP packages failed")
         
         # Error cases
         self.test_error_cases()
