@@ -43,9 +43,10 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
   - Clipboard fallback for desktop browsers
 
 ### Mobile Ready ✅
-- Capacitor configured for Android/iOS
+- Capacitor configured for Android AND iOS
 - Touch-optimized controls
 - Responsive design
+- iOS build guide: `/app/store_assets/IOS_BUILD_GUIDE.md`
 
 ### Store Assets Created ✅
 - `/app/store_assets/README.md` - App descriptions, keywords
@@ -107,13 +108,15 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 ├── frontend/
 │   ├── public/               # index.html (AdMob script), manifest.json, icons
 │   ├── src/
-│   │   ├── App.js            # React Match-3 Game Engine + UI (~1800 lines)
+│   │   ├── App.js            # React Match-3 Game Engine + UI (~1880 lines)
 │   │   ├── hooks/            # useAdPlacement
 │   │   ├── utils/            # soundManager
 │   │   └── index.css         # Animations (matchPop, specialPulse)
 │   ├── android/              # Capacitor Android project files
+│   ├── ios/                  # Capacitor iOS project files (NEW)
+│   │   └── App/              # Xcode project
 │   └── capacitor.config.json
-├── store_assets/             # PRIVACY_POLICY.md, README.md
+├── store_assets/             # PRIVACY_POLICY.md, README.md, IOS_BUILD_GUIDE.md
 ├── test_reports/
 └── memory/
 ```
