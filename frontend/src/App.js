@@ -86,30 +86,9 @@ const createBoard = (level = 1) => {
 
 // Ensure there are valid moves by creating some deliberate patterns
 const ensureValidMoves = (board) => {
-  // Add a few guaranteed valid move setups
-  const setupPositions = [
-    { row: 2, col: 2 }, // Near top-left
-    { row: 5, col: 5 }, // Near bottom-right
-  ];
-  
-  setupPositions.forEach(pos => {
-    const { row, col } = pos;
-    if (row + 2 < BOARD_SIZE && col + 1 < BOARD_SIZE) {
-      // Don't modify blockers
-      if (board[row][col].blocker || board[row+1][col].blocker || board[row+2][col].blocker || board[row+1][col+1].blocker) return;
-      
-      // Create a setup where swapping creates a vertical match
-      // Pattern:  X A
-      //           X .
-      //           A .   (swap A up to create XXX)
-      const gemType = GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)];
-      board[row][col].type = gemType;
-      board[row+1][col].type = gemType;
-      // The piece to swap is at row+2, col or row+1, col+1
-      board[row+1][col+1].type = gemType;
-    }
-  });
-  
+  // Instead of forcing patterns that might create matches,
+  // we'll just verify the board has moves and regenerate if not
+  // The hasAnyValidMove check in createBoard handles this
   return board;
 };
 
@@ -1229,9 +1208,62 @@ function App() {
     };
     
     // Limit cascades to prevent infinite loops
-    const MAX_CASCADES = 10;
-    while (cascadeCount < MAX_CASCADES && await processOnce()) {
-      // Continue cascading up to limit
+    const MAX_CASCADES = 15;
+    let hasMatches = true;
+    
+    while (hasMatches && cascadeCount < MAX_CASCADES) {
+      hasMatches = await processOnce();
+    }
+    
+    // Final safety check - keep processing until board is truly stable
+    // This handles edge cases where matches were missed
+    let safetyPasses = 0;
+    while (safetyPasses < 3) {
+      const finalMatches = findMatches(newBoard);
+      if (finalMatches.size === 0) break;
+      
+      // Process any remaining matches
+      finalMatches.forEach((info, key) => {
+        const [row, col] = key.split('-').map(Number);
+        const gem = newBoard[row][col];
+        if (gem.ice) {
+          gem.ice = false;
+        } else if (gem.chain > 0) {
+          gem.chain--;
+        } else {
+          gem.matched = true;
+        }
+      });
+      
+      // Remove and refill
+      for (let col = 0; col < BOARD_SIZE; col++) {
+        const newCol = [];
+        for (let row = BOARD_SIZE - 1; row >= 0; row--) {
+          if (!newBoard[row][col].matched) {
+            newCol.push(newBoard[row][col]);
+          }
+        }
+        while (newCol.length < BOARD_SIZE) {
+          newCol.push({
+            type: GEM_TYPES[Math.floor(Math.random() * GEM_TYPES.length)],
+            id: `cleanup-${col}-${Date.now()}-${Math.random()}`,
+            matched: false,
+            falling: false,
+            special: null,
+            ice: false,
+            chain: 0,
+            blocker: false,
+          });
+        }
+        for (let row = 0; row < BOARD_SIZE; row++) {
+          newBoard[row][col] = newCol[BOARD_SIZE - 1 - row];
+        }
+      }
+      
+      totalMatched += finalMatches.size;
+      safetyPasses++;
+      setBoard([...newBoard.map(row => [...row])]);
+      await new Promise(resolve => setTimeout(resolve, 150));
     }
     
     if (totalMatched > 0 && !isInitial) {
