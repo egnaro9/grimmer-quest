@@ -36,6 +36,11 @@ Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, r
 - Achievements system
 - Leaderboard
 - Sound effects (via Howler.js)
+- **Share Score Feature** (NEW - April 1, 2026)
+  - Share button on game over modal (pink/purple gradient)
+  - Share high score button on main menu
+  - Uses Web Share API (mobile-native sharing to any app)
+  - Clipboard fallback for desktop browsers
 
 ### Mobile Ready ✅
 - Capacitor configured for Android/iOS

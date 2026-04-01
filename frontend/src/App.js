@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2 } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
 import { useAdPlacement } from "./hooks/useAdPlacement";
 
@@ -37,6 +37,43 @@ const ACHIEVEMENTS = [
   { id: 'daily_7', name: 'Dedicated', desc: '7-day login streak', icon: '📅', threshold: 7 },
   { id: 'special_gem', name: 'Special Touch', desc: 'Create a special gem', icon: '✨', threshold: 1 },
 ];
+
+// Share score utility function
+const shareScore = async (score, level, isHighScore = false) => {
+  const text = isHighScore 
+    ? `🏆 NEW HIGH SCORE! I just scored ${score.toLocaleString()} points in Glimmer Quest! Can you beat me? 💎✨`
+    : `💎 I scored ${score.toLocaleString()} points on Level ${level} in Glimmer Quest! Can you beat me? ✨`;
+  
+  const shareData = {
+    title: 'Glimmer Quest - Match 3 Puzzle',
+    text: text,
+    url: window.location.origin
+  };
+
+  try {
+    // Use Web Share API if available (mobile-friendly)
+    if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+      await navigator.share(shareData);
+      return { success: true, method: 'share' };
+    } else {
+      // Fallback: Copy to clipboard
+      await navigator.clipboard.writeText(`${text}\n\nPlay now: ${window.location.origin}`);
+      return { success: true, method: 'clipboard' };
+    }
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      console.error('Share failed:', err);
+      // Last resort fallback
+      try {
+        await navigator.clipboard.writeText(`${text}\n\nPlay now: ${window.location.origin}`);
+        return { success: true, method: 'clipboard' };
+      } catch {
+        return { success: false };
+      }
+    }
+    return { success: false, cancelled: true };
+  }
+};
 
 // Create initial board with obstacles
 const createBoard = (level = 1) => {
@@ -340,6 +377,18 @@ const PowerUpsBar = ({ powerUps, onUsePowerUp, activePowerUp }) => {
 
 // Main Menu
 const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, onOpenAchievements, dailyRewardAvailable }) => {
+  const [shareStatus, setShareStatus] = useState(null);
+  
+  const handleShareHighScore = async () => {
+    if (!player?.high_score) return;
+    soundManager.play('buttonClick');
+    const result = await shareScore(player.high_score, player.current_level, true);
+    if (result.success) {
+      setShareStatus(result.method === 'clipboard' ? 'copied' : 'shared');
+      setTimeout(() => setShareStatus(null), 2000);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <div className="text-center mb-8">
@@ -440,6 +489,14 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         <div className="mt-6 text-center">
           <p className="text-slate-500 text-sm">Personal Best</p>
           <p className="text-2xl font-bold text-amber-400">{player.high_score.toLocaleString()}</p>
+          <button
+            data-testid="share-highscore-button"
+            className="mt-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-full text-sm font-bold flex items-center gap-2 mx-auto hover:scale-105 transition-transform"
+            onClick={handleShareHighScore}
+          >
+            <Share2 className="w-4 h-4" />
+            {shareStatus === 'copied' ? 'Copied!' : shareStatus === 'shared' ? 'Shared!' : 'Share'}
+          </button>
         </div>
       )}
     </div>
@@ -730,7 +787,18 @@ const LeaderboardModal = ({ leaderboard, currentPlayer, onClose }) => {
 };
 
 // Game Over Modal with Watch Ad to Continue
-const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, onRestart, onMainMenu, onWatchAdContinue, canContinue }) => {
+const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, level, onRestart, onMainMenu, onWatchAdContinue, canContinue }) => {
+  const [shareStatus, setShareStatus] = useState(null);
+  
+  const handleShare = async () => {
+    soundManager.play('buttonClick');
+    const result = await shareScore(score, level, newHighScore);
+    if (result.success) {
+      setShareStatus(result.method === 'clipboard' ? 'copied' : 'shared');
+      setTimeout(() => setShareStatus(null), 2000);
+    }
+  };
+
   return (
     <div className="modal-overlay">
       <div className="modal-content text-center">
@@ -764,6 +832,16 @@ const GameOverModal = ({ won, score, targetScore, coinsEarned, newHighScore, onR
         </div>
 
         <div className="space-y-3">
+          {/* Share Score Button */}
+          <button
+            data-testid="share-score-button"
+            className="btn-3d bg-gradient-to-r from-pink-500 to-purple-500 text-white border-b-4 border-purple-700 w-full flex items-center justify-center gap-2"
+            onClick={handleShare}
+          >
+            <Share2 className="w-5 h-5" />
+            {shareStatus === 'copied' ? 'Copied to Clipboard!' : shareStatus === 'shared' ? 'Shared!' : 'Share Score'}
+          </button>
+          
           {!won && canContinue && (
             <button
               data-testid="watch-ad-continue"
@@ -1720,6 +1798,7 @@ function App() {
           targetScore={getTargetScore()}
           coinsEarned={coinsEarned}
           newHighScore={newHighScore}
+          level={player?.current_level || 1}
           onRestart={startGame}
           onMainMenu={() => {
             soundManager.play('buttonClick');
