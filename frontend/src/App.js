@@ -947,6 +947,7 @@ const LossModal = ({
 };
 
 // Final Game Over Modal - shown after run is truly over (win or final loss)
+// PHASE 4: Updated to handle replay progression correctly
 const GameOverModal = ({ 
   won, 
   score, 
@@ -954,21 +955,30 @@ const GameOverModal = ({
   coinsEarned, 
   newHighScore, 
   level,
+  playedLevel,
+  currentLevel,
+  wasReplay,
   usedContinues,
   continueCount,
-  onRestart, 
-  onMainMenu
+  onPlayNext,
+  onReplayLevel,
+  onMainMenu,
+  onOpenMap
 }) => {
   const [shareStatus, setShareStatus] = useState(null);
   
   const handleShare = async () => {
     soundManager.play('buttonClick');
-    const result = await shareScore(score, level, newHighScore);
+    const result = await shareScore(score, playedLevel, newHighScore);
     if (result.success) {
       setShareStatus(result.method === 'clipboard' ? 'copied' : 'shared');
       setTimeout(() => setShareStatus(null), 2000);
     }
   };
+
+  // Determine button behavior based on whether this was a replay
+  const showNextLevelButton = won && !wasReplay;
+  const showReplayButton = !won || wasReplay;
 
   return (
     <div className="modal-overlay">
@@ -977,7 +987,10 @@ const GameOverModal = ({
           {won ? (
             <>
               <div className="text-6xl mb-2">🎉</div>
-              <h2 className="font-heading text-4xl font-bold text-amber-400">Level Complete!</h2>
+              <h2 className="font-heading text-4xl font-bold text-amber-400">Level {playedLevel} Complete!</h2>
+              {wasReplay && (
+                <p className="text-slate-400 text-sm mt-1">Replayed level</p>
+              )}
             </>
           ) : (
             <>
@@ -1018,13 +1031,48 @@ const GameOverModal = ({
             {shareStatus === 'copied' ? 'Copied to Clipboard!' : shareStatus === 'shared' ? 'Shared!' : 'Share Score'}
           </button>
           
-          <button
-            data-testid="play-again-button"
-            className="btn-3d btn-3d-gold w-full"
-            onClick={onRestart}
-          >
-            {won ? 'Next Level' : 'Try Again'}
-          </button>
+          {/* Primary action button - context-aware */}
+          {showNextLevelButton ? (
+            // Won current level - show "Next Level" to advance
+            <button
+              data-testid="next-level-button"
+              className="btn-3d btn-3d-gold w-full"
+              onClick={onPlayNext}
+            >
+              Next Level
+            </button>
+          ) : won && wasReplay ? (
+            // Won a replayed level - show "Back to Map" as primary action
+            <button
+              data-testid="back-to-map-button"
+              className="btn-3d btn-3d-gold w-full flex items-center justify-center gap-2"
+              onClick={onOpenMap}
+            >
+              <Map className="w-5 h-5" />
+              Back to Map
+            </button>
+          ) : (
+            // Lost - show "Try Again"
+            <button
+              data-testid="try-again-button"
+              className="btn-3d btn-3d-gold w-full"
+              onClick={onReplayLevel}
+            >
+              Try Again
+            </button>
+          )}
+          
+          {/* Secondary action - Replay same level (only if won non-replay) */}
+          {showNextLevelButton && (
+            <button
+              data-testid="replay-level-button"
+              className="btn-3d bg-slate-600 text-white border-b-4 border-slate-700 w-full"
+              onClick={onReplayLevel}
+            >
+              Replay Level {playedLevel}
+            </button>
+          )}
+          
           <button
             data-testid="main-menu-button"
             className="btn-3d bg-slate-700 text-white border-b-4 border-slate-800 w-full"
@@ -1272,21 +1320,25 @@ function App() {
   };
 
   // Finalize win - immediate persistence since no continue option
+  // PHASE 4 FIX: Use actual played level (selectedMapLevel) not player.current_level
   const finalizeWin = async () => {
     setGameWon(true);
     const earned = Math.floor(score / 10);
     setCoinsEarned(earned);
     soundManager.play('levelUp');
     
+    // Determine the actual level that was played
+    const playedLevel = selectedMapLevel || player.current_level;
+    
     // Show interstitial ad between levels
-    await showInterstitialAd(`level_${player.current_level}_complete`);
+    await showInterstitialAd(`level_${playedLevel}_complete`);
     
     try {
-      const levelConfig = getLevelConfig(player.current_level);
+      const levelConfig = getLevelConfig(playedLevel);
       const res = await axios.post(`${API}/game/end`, {
         player_id: player.id,
         score: score,
-        level: player.current_level,
+        level: playedLevel,  // FIX: Send actual played level, not current_level
         moves_used: levelConfig.moves - movesLeft,
         used_continues: usedContinues,
         continue_count: continueCount
@@ -1302,13 +1354,17 @@ function App() {
   };
 
   // Finalize loss - called when player declines continue or exhausts all continues
+  // PHASE 4 FIX: Use actual played level (selectedMapLevel) not player.current_level
   const finalizeLoss = async () => {
+    // Determine the actual level that was played
+    const playedLevel = selectedMapLevel || player.current_level;
+    
     try {
-      const levelConfig = getLevelConfig(player.current_level);
+      const levelConfig = getLevelConfig(playedLevel);
       const res = await axios.post(`${API}/game/end`, {
         player_id: player.id,
         score: score,
-        level: player.current_level,
+        level: playedLevel,  // FIX: Send actual played level, not current_level
         moves_used: levelConfig.moves - movesLeft + (continueCount * 5), // Include continued moves
         used_continues: usedContinues,
         continue_count: continueCount
@@ -1393,18 +1449,22 @@ function App() {
     await finalizeLoss();
   };
 
-  // Get level configuration for current level
-  const currentLevelConfig = getLevelConfig(player?.current_level || 1);
+  // Get level configuration for the level being played
+  // PHASE 4 FIX: Use selectedMapLevel if set, otherwise current_level
+  const getPlayedLevelConfig = useCallback(() => {
+    const playedLevel = selectedMapLevel || player?.current_level || 1;
+    return getLevelConfig(playedLevel);
+  }, [selectedMapLevel, player?.current_level]);
 
-  // Get target score for current level
-  const getTargetScore = () => {
-    return currentLevelConfig.targetScore;
-  };
+  // Get target score for the level being played
+  const getTargetScore = useCallback(() => {
+    return getPlayedLevelConfig().targetScore;
+  }, [getPlayedLevelConfig]);
 
-  // Get moves for current level
-  const getLevelMoves = () => {
-    return currentLevelConfig.moves;
-  };
+  // Get moves for the level being played
+  const getLevelMoves = useCallback(() => {
+    return getPlayedLevelConfig().moves;
+  }, [getPlayedLevelConfig]);
 
   // Check for matches and create special gems
   const findMatches = useCallback((currentBoard) => {
@@ -2048,7 +2108,7 @@ function App() {
             coins={player?.coins || 0}
             score={score}
             movesLeft={movesLeft}
-            level={player?.current_level || 1}
+            level={selectedMapLevel || player?.current_level || 1}
             targetScore={getTargetScore()}
             soundOn={soundOn}
             onToggleSound={toggleSound}
@@ -2133,6 +2193,7 @@ function App() {
               onClick={() => {
                 soundManager.play('buttonClick');
                 setGameState('menu');
+                setSelectedMapLevel(null); // Clear selected level when quitting
                 refreshPlayer();
               }}
             >
@@ -2143,12 +2204,13 @@ function App() {
       )}
       
       {/* Loss Modal - pending state, can still continue */}
+      {/* PHASE 4: Show actual played level */}
       {gameState === 'pending_loss' && (
         <LossModal
           score={score}
           targetScore={getTargetScore()}
           coinsEarned={coinsEarned}
-          level={player?.current_level || 1}
+          level={selectedMapLevel || player?.current_level || 1}
           playerCoins={player?.coins || 0}
           continueCount={continueCount}
           continueError={continueError}
@@ -2160,6 +2222,7 @@ function App() {
       )}
       
       {/* Final Game Over Modal - run is truly over */}
+      {/* PHASE 4: Updated with replay-aware button logic */}
       {gameState === 'gameover' && (
         <GameOverModal
           won={gameWon}
@@ -2168,13 +2231,34 @@ function App() {
           coinsEarned={coinsEarned}
           newHighScore={newHighScore}
           level={player?.current_level || 1}
+          playedLevel={selectedMapLevel || player?.current_level || 1}
+          currentLevel={player?.current_level || 1}
+          wasReplay={selectedMapLevel !== null && selectedMapLevel < player?.current_level}
           usedContinues={usedContinues}
           continueCount={continueCount}
-          onRestart={startGame}
+          onPlayNext={() => {
+            // Play the next level (player.current_level was already advanced by backend if they beat their highest)
+            soundManager.play('buttonClick');
+            startGame(); // Will use player.current_level (which is now the new level)
+          }}
+          onReplayLevel={() => {
+            // Replay the same level that was just played
+            soundManager.play('buttonClick');
+            const levelToReplay = selectedMapLevel || player?.current_level || 1;
+            startGame(levelToReplay);
+          }}
           onMainMenu={() => {
             soundManager.play('buttonClick');
             setGameState('menu');
+            setSelectedMapLevel(null); // Clear selected level when returning to menu
             refreshPlayer();
+          }}
+          onOpenMap={() => {
+            soundManager.play('buttonClick');
+            setGameState('menu');
+            setSelectedMapLevel(null); // Clear selected level
+            refreshPlayer();
+            setShowLevelMap(true); // Open the map
           }}
         />
       )}
