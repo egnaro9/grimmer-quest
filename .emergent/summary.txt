@@ -2,136 +2,134 @@
 PRODUCT REQUIREMENTS: 
 - Fully functional Match-3 game (Glimmer Quest) with cascading mechanics, combos, and special gems.
 - Monetization via Lives (regenerating), Coins, Power-ups, Stripe (Real money purchases), and Google AdMob (Rewarded ads).
-- Mobile-ready structure (Capacitor Android project).
+- Mobile-ready structure (Capacitor Android and iOS projects).
+- Implement 5 strict sequential phases: 1) Continue After Loss, 2) Visual feedback, 3) Level expansion with configs, 4) Level map screen, 5) Difficulty tuning.
 
 **User's preferred language**: English (INSTRUCT next agent to respond in English only)
 
-**what currently exists?**: A fully playable Match-3 web game named Glimmer Quest. The frontend is built in React (heavy logic inside ) with TailwindCSS, supporting drag-and-drop/click-to-swap gem mechanics. The backend is a FastAPI + MongoDB service managing player states, lives regeneration, daily rewards, and Stripe payment intents. The app is packaged via Capacitor for Android, though local SDK limitations mean APK compilation is offloaded to the user.
+**what currently exists?**: A fully playable, cross-platform Match-3 web game (Glimmer Quest) with 50 data-driven levels, 5 themed worlds, and a world map progression UI. It features a robust Continue After Loss system (via coins or mocked ads), advanced CSS visual feedback (screen shakes, combo texts, cascade pulses), Stripe IAP, and capacitor configurations for both Android and iOS. Comprehensive app documentation was also written to the  directory.
 
 **Last working item**:
-- Last item agent was working: Running a dynamic test via  to ensure that a recently introduced bug (4 gems grouping together without disappearing after a cascade) was successfully fixed by the latest updates to  and , and validating that overall gameplay matches popular standards.
-- Status: IN PROGRESS
-- Agent Testing Done: Y 
-- Which testing method agent to use?: backend testing agent/ frontend testing agent ()
+- Last item agent was working: Gathering code references to answer the user's strict 7-point verification questions for Phase 4 (Level map / world progression). The agent was analyzing how level selection, replay logic, and locked/unlocked map states interact with the backend before responding to the user.
+- Status: USER VERIFICATION PENDING
+- Agent Testing Done: Y (Visual screenshots verified UI rendering)
+- Which testing method agent to use?: NA (Next immediate step is a text response. For future gameplay logic, use frontend testing agent / screenshot tool).
 - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-Issue 1: Review and Resolve Grouped Gems Not Matching /  Test Results (P0)
-- Attempted fixes: Agent updated  loop to include a final sweep for matches, and updated  to prevent accidentally spawning pre-matched lines.
-- Next debug checklist: Read . Verify if the cascade/grouping logic passed. If failing, review  and  inside  to ensure the board state updates asynchronously without race conditions.
-- Why fix this issue and what will be achieved with the fix?: Fundamental to Match-3 logic; without clearing grouped gems, the board becomes unplayable.
-- Status: TESTING PENDING
+Issue 1: Respond to User's Phase 4 Verification Questions (P0)
+- Attempted fixes: Agent fetched the code blocks for  (around , , ) and , but the session ended before generating the response.
+- Next debug checklist: Read the very last user message. You MUST answer the 7 specific questions about code paths for level selection, replay progression logic (preventing replayed levels from advancing the current highest level), world tabs unlocking, and provide the manual test plan. (Hint: check if  relies on  vs the new  / ).
+- Why fix this issue and what will be achieved with the fix?: The user strictly prohibits moving to Phase 5 until Phase 4 is explicitly verified and explained.
+- Status: IN PROGRESS
 - Is recurring issue?: N
-- Should Test frontend/backend/both after fix?: Both (Focus on frontend E2E)
+- Should Test frontend/backend/both after fix?: NA (Textual explanation required)
 - Blocked on other issue: None
 
 **In progress Task List**:
-Task 1: Validate Gameplay Mechanics
-- Where to resume: Read the output of the testing agent in .
-- What will be achieved with this?: Final validation of game stability, ensuring no infinite cascades and proper gem clearing.
-- Status: IN PROGRESS
+Task 1: Phase 5 - Difficulty tuning pass (P1)
+- Where to resume: Do NOT start this until the user approves the answers you provide for Phase 4 verification. Once approved, implement difficulty balancing (adjusting target scores, moves, and obstacle density) to optimize player retention and monetization.
+- What will be achieved with this?: Completion of the user's 5-phase enhancement plan.
+- Status: NOT STARTED
 - Should Test frontend/backend/both after fix?: Frontend
-- Blocked on something: None
+- Blocked on something: Blocked by Phase 4 Verification.
 
 **Upcoming and Future Tasks**:
 Upcoming Tasks:
-- Add User's AdMob Publisher ID: Once the user provides it, inject it into  (P1).
+- Add User's AdMob Publisher ID (P1): Once provided, inject into .
 Future Tasks:
-- Implement Stripe Webhooks (Optional/P2): The current Stripe implementation relies on client-side success callbacks. For production, setting up robust backend webhook validation is recommended.
-- Polish App Icons (P2): The current SVG/PNG icons are basic placeholders.
+- Implement Stripe Webhooks (P2): Set up backend webhook validation for production.
+- Polish App Icons (P2): Update placeholder SVGs for Play Store/App Store.
+- Add tutorial for new players (P2)
 
 **Completed work in this session**:
-- Renamed project to Glimmer Quest and verified market availability (DONE)
-- Stripe Payment integration for IAP coins/lives (DONE)
-- AdMob Ad placement hook structure (DONE)
-- Capacitor initialization for Android and manifest/icon generation (DONE)
-- Fixed touch/drag mechanics for gem swapping (DONE)
-- Fixed infinite cascade loop by capping at 10 cascades (DONE)
-- Ensured random board generation always has valid moves (DONE)
+- Fixed grouped gems not matching bug (DONE)
+- Added Share Score feature using Web Share API (DONE)
+- Added iOS support to Capacitor and synced Web/Android/iOS builds (DONE)
+- Generated  (DONE)
+- Phase 1: Continue After Loss system with strict server-side validation and pending_loss states (DONE)
+- Phase 2: Visual feedback upgrade (CSS animations, match bursts, screen shake) (DONE)
+- Phase 3: Level expansion to 50 levels via data-driven config  (DONE)
+- Phase 4: Level map UI with 5 themed worlds, locked/unlocked nodes, and level replayability (DONE)
 
 **Earlier issues found/mentioned but not fixed**:
-Issue 1: Android APK Build Failure
-- Debug checklist: Not an application bug. The K8s container lacks the Java/Android SDK required to run . 
-- Why to solve this issue and what will be achieved with this?: User requested to turn it into an Android app.
-- Should Test frontend/backend/both after fix: NA
+Issue 1: Replay Progression Bug (Potential)
+- Debug checklist: In , when a player replays an old level from the map,  is used to load the board, but  might still be sending  to . Ensure replaying Level 1 doesn't mistakenly advance the player to Level .
+- Why to solve this issue: Crucial for Phase 4 verification requested by the user.
+- Should Test frontend/backend/both after fix: Both
 - Is recurring issue?: N
-- *Note: Agent correctly mitigated this by initializing the Capacitor Android project and guiding the user to download the code via Save to GitHub to build locally.*
+
+Issue 2: Mocked AdMob Integration
+- Debug checklist:  automatically succeeds after 1.5 seconds.
+- Why to solve this issue: Required for real monetization.
+- Should Test frontend/backend/both after fix: Frontend
+- Is recurring issue?: N
 
 **Known issue recurrence from previous fork**:
-- Issue recurrence in previous fork: None (First deep session on this project).
+- Issue recurrence in previous fork: None
 - Recurrence count: 0
 - Status: NOT STARTED
 
 **Code Architecture**:
 
 
-**Key Technical Concepts**: React, TailwindCSS, Match-3 2D array matrix logic, FastAPI, MongoDB (Motor Async), Stripe IAP, Capacitor (Mobile wrapper).
+**Key Technical Concepts**: React, CSS Animations, Match-3 logic matrix, FastAPI, MongoDB, Capacitor (Web/iOS/Android).
 
 **key DB schema**:
 - players: 
 
-**changes in tech stack**: Added Capacitor (, , ) to React for mobile compilation.
+**changes in tech stack**: 
+- Added 
 
 **All files of reference**:
--  (Contains 100% of game logic, handlers, and UI models. Extensively updated)
--  (Tailwind and critical CSS animations for cascades and specials)
--  (API Logic and Stripe intent creation)
--  (Mobile configuration)
--  (Added AdSense/AdMob scripts)
--  (Latest unread test results)
+-  (Created this session: centralized 50 levels)
+-  (Created this session: Map UI)
+-  (Heavily modified with visual states, map integration, and continue flow)
+-  (Added extensive animation keyframes)
+-  (Added  endpoint)
+-  (Contains comprehensive rulebook of the app)
 
 **Areas that need refactoring**: 
--  is extremely large (~1800 lines). The Match-3 logic (, , ) is tightly coupled with UI components (, ). Refactoring into custom hooks (e.g., ) is highly recommended for maintainability.
+-  is over 2200 lines. The modal components and game logic could be separated into custom hooks.
 
 **key api endpoints**:
 - 
 - 
 - 
-- 
-- 
 
 **Critical Info for New Agent**: 
-1. **Game Logic Caution**: The board is an 8x8 matrix. Edits to , , or  in  are highly prone to introducing infinite loops or no match available bugs. Proceed with extreme caution and use heavy console logging if modifying matrix logic.
-2. **Android Build Constraints**: You cannot compile an APK in this environment (No Android SDK). If requested, reiterate the instruction for the user to export the code and compile locally via Android Studio.
-3. **Stripe Test Key**:  is active in the backend .
+1. **DO NOT START PHASE 5 YET.** The user has explicitly demanded a 7-point verification pass for Phase 4. You must read the final user message, address the code paths, and explain the replay logic before moving forward.
+2. **Replay Logic check:** Look closely at  in . If a user is replaying an old level (via ), make sure the backend doesn't advance their  inappropriately.
+3. Capacitor iOS and Android builds have been successfully initialized. Do not attempt to build the native apps in the container.
 
 **documents and test reports created in this job**:
 - 
 - 
 - 
-- 
--  (Unread by agent)
+-  (Updated)
 
 **Last 10 User Messages and any pending HUMAN messages**:
-- *User*: Ive noticed that sometimes after a cascade, therell be, like, a grouping of four gems. Theyll be sitting there all touching each other... a grouping of three makes things disappear." (Agent adjusted `processMatches` logic)
-- *User*: "Can you run a dynamic test to make sure th- the game is running correctly, and also check to make sure that none of the changes we made over the course of building it didnt affect the gameplay being correct... (Agent executed )
-- *Pending Action*: The  returned . You MUST read this report and resolve any issues it found before considering the game logic fixed.
+- *User*: Proceed to Phase 4 only... Add a level map screen... (Agent implemented LevelMap and worlds).
+- *User*: Do not start Phase 5 yet. I need a Phase 4 verification pass first. Answer these exactly: 1. Show me the exact code path... 2. Confirm whether starting a replayed earlier level affects progression correctly... 7. Give me the exact manual test plan...
+- *Pending Action*: The agent gathered the necessary file views but did not respond. Your absolute FIRST task is to write out the detailed text response answering all 7 questions from the final user message.
 
 **Project Health Check**:
-- Core Game: Functional
-- Android Build: Mocked (Requires local env)
-- Stripe: Integrated (Test mode)
+- Broken: None
+- Mocked: iOS/Android native builds, AdMob SDK.
 
 **3rd Party Integrations**:
+- Stripe (Payments) — requires User API Key
 - Google AdMob (Ads) — requires User Publisher ID
-- Stripe (Payments) — requires User API Key (Currently using  locally)
 - *No Emergent LLM Key integrations used.*
 
 **Testing status**:
-- Testing agent used after significant changes: YES
-- Troubleshoot agent used after agent stuck in loop: NO
+- Testing agent used after significant changes: YES ()
+- Troubleshoot agent used: NO
 - Test files created: 
-- Known regressions: Cascades leaving touching gems unmatched (Pending verification in )
+- Known regressions: None explicitly known, but replay progression requires auditing per the user's final prompt.
 
 **Credentials to test flow**:
-Players are created dynamically on the frontend via name input (e.g., GemMaster). Lives can be manually reset via  in MongoDB if testing hits the 5-life limit.
+Players are created dynamically. Backend variables (, ) are pre-configured.
 
 **What agent forgot to execute**:
-The agent initiated  (Iteration 3) to test the grouped gems bug fix but the job cut off immediately after the test report was generated. The agent needs to read  and act upon its findings.
-
-**Debugging checklist for current issue**
-Issue: Gems group together (4+) without disappearing after a cascade.
-Frontend files to check:
--  ->  (Check if the recursive  loop accurately flags all matches spawned by falling gems before it completes).
--  ->  (Check if ensuring valid moves inadvertently places pre-matched groups on the board without immediately clearing them).
--  -> Read this file first to see the testing agent's E2E trace.</analysis>
+The agent fetched the file views to answer the user's Phase 4 verification questions but failed to output the actual conversational response before the session terminated. You must generate that response immediately.</analysis>
