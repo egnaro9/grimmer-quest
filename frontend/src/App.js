@@ -4,6 +4,7 @@ import axios from "axios";
 import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2 } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
 import { useAdPlacement } from "./hooks/useAdPlacement";
+import { getLevelConfig, getTotalLevels, DIFFICULTY_BADGES } from "./config/levels";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -12,26 +13,15 @@ const API = `${BACKEND_URL}/api`;
 const BOARD_SIZE = 8;
 const GEM_TYPES = ['red', 'blue', 'green', 'yellow', 'purple'];
 const SPECIAL_TYPES = ['striped_h', 'striped_v', 'wrapped', 'color_bomb'];
-const MOVES_PER_LEVEL = 30;
-const LEVEL_CONFIGS = [
-  { target: 1000, obstacles: [] },
-  { target: 2000, obstacles: [] },
-  { target: 3500, obstacles: ['ice'] },
-  { target: 5000, obstacles: ['ice'] },
-  { target: 7500, obstacles: ['ice', 'chain'] },
-  { target: 10000, obstacles: ['ice', 'chain'] },
-  { target: 15000, obstacles: ['ice', 'chain', 'blocker'] },
-  { target: 20000, obstacles: ['ice', 'chain', 'blocker'] },
-  { target: 30000, obstacles: ['ice', 'chain', 'blocker'] },
-  { target: 50000, obstacles: ['ice', 'chain', 'blocker'] },
-];
 
-// Achievement definitions
+// Achievement definitions (updated for 50 levels)
 const ACHIEVEMENTS = [
   { id: 'first_match', name: 'First Match', desc: 'Make your first match', icon: '⭐', threshold: 1 },
   { id: 'combo_master', name: 'Combo Master', desc: 'Get a 5x combo', icon: '🔥', threshold: 5 },
   { id: 'level_5', name: 'Rising Star', desc: 'Reach level 5', icon: '🌟', threshold: 5 },
   { id: 'level_10', name: 'Gem Champion', desc: 'Reach level 10', icon: '👑', threshold: 10 },
+  { id: 'level_25', name: 'Halfway Hero', desc: 'Reach level 25', icon: '🎯', threshold: 25 },
+  { id: 'level_50', name: 'Glimmer Master', desc: 'Complete all 50 levels', icon: '🏅', threshold: 50 },
   { id: 'score_10k', name: 'High Scorer', desc: 'Score 10,000 in one game', icon: '💎', threshold: 10000 },
   { id: 'score_50k', name: 'Legend', desc: 'Score 50,000 in one game', icon: '🏆', threshold: 50000 },
   { id: 'daily_7', name: 'Dedicated', desc: '7-day login streak', icon: '📅', threshold: 7 },
@@ -75,9 +65,11 @@ const shareScore = async (score, level, isHighScore = false) => {
   }
 };
 
-// Create initial board with obstacles
+// Create initial board with obstacles - uses data-driven level config
 const createBoard = (level = 1) => {
-  const config = LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)];
+  const levelConfig = getLevelConfig(level);
+  const obstacles = levelConfig.obstacles;
+  
   let board;
   let attempts = 0;
   
@@ -97,16 +89,22 @@ const createBoard = (level = 1) => {
           blocker: false,
         };
         
-        // Add random obstacles based on level config (reduced for playability)
-        if (config.obstacles.includes('ice') && Math.random() < 0.08) {
-          gem.ice = true;
-        }
-        if (config.obstacles.includes('chain') && Math.random() < 0.05) {
-          gem.chain = 1;
-        }
-        if (config.obstacles.includes('blocker') && Math.random() < 0.02) {
+        // Add obstacles based on level config percentages
+        // Check blocker first (blockers can't have other obstacles)
+        if (obstacles.blocker > 0 && Math.random() < obstacles.blocker) {
           gem.blocker = true;
           gem.type = 'blocker';
+        } else {
+          // Add ice (percentage-based)
+          if (obstacles.ice > 0 && Math.random() < obstacles.ice) {
+            gem.ice = true;
+          }
+          // Add chain (percentage-based, 50% chance of double chain on hard+ levels)
+          if (obstacles.chain > 0 && Math.random() < obstacles.chain) {
+            const difficulty = levelConfig.difficulty;
+            const doubleChainChance = (difficulty === 'hard' || difficulty === 'expert' || difficulty === 'master') ? 0.5 : 0.25;
+            gem.chain = Math.random() < doubleChainChance ? 2 : 1;
+          }
         }
         
         rowArr.push(gem);
@@ -400,6 +398,10 @@ const PowerUpsBar = ({ powerUps, onUsePowerUp, activePowerUp }) => {
 const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, onOpenAchievements, dailyRewardAvailable }) => {
   const [shareStatus, setShareStatus] = useState(null);
   
+  // Get level config for display
+  const levelConfig = getLevelConfig(player?.current_level || 1);
+  const totalLevels = getTotalLevels();
+  
   const handleShareHighScore = async () => {
     if (!player?.high_score) return;
     soundManager.play('buttonClick');
@@ -419,7 +421,7 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         <p className="text-slate-400 text-lg">Match 3 to shine!</p>
       </div>
 
-      <div className="glass-strong rounded-2xl p-6 mb-8 w-full max-w-sm">
+      <div className="glass-strong rounded-2xl p-6 mb-6 w-full max-w-sm">
         <div className="text-center mb-4">
           <p className="text-slate-400 text-sm">Welcome back,</p>
           <p className="text-2xl font-bold text-white">{player?.player_name || 'Player'}</p>
@@ -442,11 +444,32 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-purple-400">
               <Trophy className="w-5 h-5" />
-              <span className="font-bold">Lvl {player?.current_level || 1}</span>
+              <span className="font-bold">{player?.current_level || 1}/{totalLevels}</span>
             </div>
             <p className="text-xs text-slate-500">Level</p>
           </div>
         </div>
+      </div>
+
+      {/* Level Preview Card */}
+      <div className="glass rounded-xl p-4 mb-6 w-full max-w-sm">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-white font-bold">Level {player?.current_level || 1}</span>
+          <span className={`text-xs px-2 py-1 rounded-full border ${DIFFICULTY_BADGES[levelConfig.difficulty] || DIFFICULTY_BADGES.easy}`}>
+            {levelConfig.difficulty.toUpperCase()}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="text-slate-400">
+            Target: <span className="text-amber-400 font-bold">{levelConfig.targetScore.toLocaleString()}</span>
+          </div>
+          <div className="text-slate-400">
+            Moves: <span className="text-white font-bold">{levelConfig.moves}</span>
+          </div>
+        </div>
+        {levelConfig.description && (
+          <p className="text-slate-500 text-xs mt-2 italic">{levelConfig.description}</p>
+        )}
       </div>
 
       <div className="space-y-4 w-full max-w-sm">
@@ -1065,7 +1088,7 @@ function App() {
   const [board, setBoard] = useState(null);
   const [selectedGem, setSelectedGem] = useState(null);
   const [score, setScore] = useState(0);
-  const [movesLeft, setMovesLeft] = useState(MOVES_PER_LEVEL);
+  const [movesLeft, setMovesLeft] = useState(30); // Initial value, set properly in startGame
   const [isProcessing, setIsProcessing] = useState(false);
   const [gameState, setGameState] = useState('menu');
   const [gameWon, setGameWon] = useState(false);
@@ -1193,10 +1216,11 @@ function App() {
     try {
       const res = await axios.post(`${API}/game/start?player_id=${player.id}`);
       if (res.data.success) {
+        const levelConfig = getLevelConfig(player.current_level);
         setPlayer(prev => ({ ...prev, lives: res.data.lives_remaining, power_ups: res.data.power_ups }));
         setBoard(createBoard(player.current_level));
         setScore(0);
-        setMovesLeft(MOVES_PER_LEVEL);
+        setMovesLeft(levelConfig.moves); // Use level-specific move count
         setComboCount(0);
         setGameState('playing');
         setGameWon(false);
@@ -1234,11 +1258,12 @@ function App() {
     await showInterstitialAd(`level_${player.current_level}_complete`);
     
     try {
+      const levelConfig = getLevelConfig(player.current_level);
       const res = await axios.post(`${API}/game/end`, {
         player_id: player.id,
         score: score,
         level: player.current_level,
-        moves_used: MOVES_PER_LEVEL - movesLeft,
+        moves_used: levelConfig.moves - movesLeft,
         used_continues: usedContinues,
         continue_count: continueCount
       });
@@ -1255,11 +1280,12 @@ function App() {
   // Finalize loss - called when player declines continue or exhausts all continues
   const finalizeLoss = async () => {
     try {
+      const levelConfig = getLevelConfig(player.current_level);
       const res = await axios.post(`${API}/game/end`, {
         player_id: player.id,
         score: score,
         level: player.current_level,
-        moves_used: MOVES_PER_LEVEL - movesLeft + (continueCount * 5), // Include continued moves
+        moves_used: levelConfig.moves - movesLeft + (continueCount * 5), // Include continued moves
         used_continues: usedContinues,
         continue_count: continueCount
       });
@@ -1343,10 +1369,17 @@ function App() {
     await finalizeLoss();
   };
 
+  // Get level configuration for current level
+  const currentLevelConfig = getLevelConfig(player?.current_level || 1);
+
   // Get target score for current level
   const getTargetScore = () => {
-    const level = player?.current_level || 1;
-    return LEVEL_CONFIGS[Math.min(level - 1, LEVEL_CONFIGS.length - 1)].target;
+    return currentLevelConfig.targetScore;
+  };
+
+  // Get moves for current level
+  const getLevelMoves = () => {
+    return currentLevelConfig.moves;
   };
 
   // Check for matches and create special gems
