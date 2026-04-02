@@ -222,9 +222,16 @@ const Gem = ({ gem, row, col, selected, onSelect }) => {
     );
   }
 
+  // Phase 2: Enhanced animation classes
+  const matchClass = gem.matched ? 'gem-matched' : '';
+  const specialActivateClass = gem.matched && gem.special ? 'gem-special-activate' : '';
+  const cascadeGlowClass = gem.falling ? 'gem-cascade-glow' : '';
+
   const baseClasses = `gem gem-${gem.type} w-full h-full flex items-center justify-center relative cursor-pointer
     ${selected ? 'selected ring-4 ring-amber-400 ring-opacity-80 scale-110' : ''} 
-    ${gem.matched ? 'matched' : ''} 
+    ${matchClass}
+    ${specialActivateClass}
+    ${cascadeGlowClass}
     ${gem.falling ? 'falling' : ''}
     ${gem.special ? 'special-' + gem.special : ''}`;
 
@@ -263,6 +270,20 @@ const Gem = ({ gem, row, col, selected, onSelect }) => {
           <div className={`absolute inset-1 border-4 ${gem.chain === 2 ? 'border-amber-600' : 'border-amber-400'} rounded-lg opacity-80`} />
           <Link2 className="w-4 h-4 text-amber-300" />
         </div>
+      )}
+      
+      {/* Phase 2: Special gem activation effects */}
+      {gem.matched && gem.special === 'striped_h' && (
+        <div className="line-clear-horizontal" />
+      )}
+      {gem.matched && gem.special === 'striped_v' && (
+        <div className="line-clear-vertical" />
+      )}
+      {gem.matched && gem.special === 'wrapped' && (
+        <div className="wrapped-explosion" />
+      )}
+      {gem.matched && gem.special === 'color_bomb' && (
+        <div className="color-bomb-wave" />
       )}
       
       <div className={baseClasses}>
@@ -1058,6 +1079,13 @@ function App() {
   const [isWatchingAd, setIsWatchingAd] = useState(false);
   const [continueError, setContinueError] = useState(null); // Track continue purchase errors
 
+  // Visual feedback state (Phase 2)
+  const [screenShake, setScreenShake] = useState(false);
+  const [comboDisplay, setComboDisplay] = useState(null); // { count: number, key: number }
+  const [scorePopups, setScorePopups] = useState([]); // [{ id, x, y, points }]
+  const [specialEffects, setSpecialEffects] = useState([]); // [{ id, type, x, y }]
+  const [isCascading, setIsCascading] = useState(false);
+
   // Player state
   const [player, setPlayer] = useState(null);
   const [showNameInput, setShowNameInput] = useState(true);
@@ -1392,6 +1420,18 @@ function App() {
       totalMatched += matches.size;
       cascadeCount++;
       
+      // === PHASE 2: Visual feedback for cascades ===
+      if (cascadeCount > 1) {
+        setComboDisplay({ count: Math.min(cascadeCount, 5), key: Date.now() });
+        setIsCascading(true);
+      }
+      
+      // Screen shake for big matches (4+ gems or cascade)
+      if (matches.size >= 4 || cascadeCount > 1) {
+        setScreenShake(true);
+        setTimeout(() => setScreenShake(false), 400);
+      }
+      
       // Determine special gems to create
       const specialGems = [];
       matches.forEach((info, key) => {
@@ -1410,6 +1450,23 @@ function App() {
           specialGems.push({ row, col, special, type: newBoard[row][col].type });
         }
       });
+      
+      // === PHASE 2: Score popup for matches ===
+      if (matches.size > 0 && !isInitial) {
+        const matchPoints = matches.size * 10 * Math.min(cascadeCount, 5);
+        const firstMatch = matches.keys().next().value;
+        const [popRow, popCol] = firstMatch.split('-').map(Number);
+        setScorePopups(prev => [...prev, {
+          id: Date.now(),
+          row: popRow,
+          col: popCol,
+          points: matchPoints
+        }]);
+        // Clean up old popups after animation
+        setTimeout(() => {
+          setScorePopups(prev => prev.slice(-5)); // Keep max 5
+        }, 1000);
+      }
       
       // Mark matched gems (handle obstacles)
       matches.forEach((info, key) => {
@@ -1490,6 +1547,10 @@ function App() {
     while (hasMatches && cascadeCount < MAX_CASCADES) {
       hasMatches = await processOnce();
     }
+    
+    // Clear cascading state
+    setIsCascading(false);
+    setComboDisplay(null);
     
     // Final safety check - keep processing until board is truly stable
     // This handles edge cases where matches were missed
@@ -1950,27 +2011,58 @@ function App() {
             </div>
           )}
           
+          {/* Phase 2: Game board wrapper with screen shake and cascade effects */}
           <div 
-            className="game-board mx-auto"
-            style={{ 
-              gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
-              maxWidth: '400px',
-              aspectRatio: '1'
-            }}
-            data-testid="game-board"
+            className={`relative ${screenShake ? 'screen-shake' : ''}`}
           >
-            {board.map((row, rowIdx) => 
-              row.map((gem, colIdx) => (
-                <Gem
-                  key={gem.id}
-                  gem={gem}
-                  row={rowIdx}
-                  col={colIdx}
-                  selected={selectedGem?.row === rowIdx && selectedGem?.col === colIdx}
-                  onSelect={handleGemSelect}
-                />
-              ))
+            {/* Combo text overlay */}
+            {comboDisplay && (
+              <div 
+                key={comboDisplay.key}
+                className={`combo-text ${
+                  comboDisplay.count >= 5 ? 'combo-max' : `combo-${comboDisplay.count}`
+                }`}
+              >
+                {comboDisplay.count >= 5 ? 'AMAZING!' : `${comboDisplay.count}x COMBO!`}
+              </div>
             )}
+            
+            <div 
+              className={`game-board mx-auto ${isCascading ? 'board-cascading' : ''}`}
+              style={{ 
+                gridTemplateColumns: `repeat(${BOARD_SIZE}, minmax(0, 1fr))`,
+                maxWidth: '400px',
+                aspectRatio: '1'
+              }}
+              data-testid="game-board"
+            >
+              {board.map((row, rowIdx) => 
+                row.map((gem, colIdx) => (
+                  <div key={gem.id} className="relative">
+                    <Gem
+                      gem={gem}
+                      row={rowIdx}
+                      col={colIdx}
+                      selected={selectedGem?.row === rowIdx && selectedGem?.col === colIdx}
+                      onSelect={handleGemSelect}
+                    />
+                    {/* Score popup at gem position */}
+                    {scorePopups
+                      .filter(p => p.row === rowIdx && p.col === colIdx)
+                      .map(popup => (
+                        <div 
+                          key={popup.id}
+                          className="score-popup"
+                          style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
+                        >
+                          +{popup.points}
+                        </div>
+                      ))
+                    }
+                  </div>
+                ))
+              )}
+            </div>
           </div>
           
           <div className="flex justify-center mt-4">
