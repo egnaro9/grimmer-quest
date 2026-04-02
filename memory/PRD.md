@@ -1,129 +1,136 @@
-# Glimmer Quest - Match-3 Puzzle Game PRD
+# Glimmer Quest - Product Requirements Document
 
 ## Original Problem Statement
-Build a Match-3 puzzle game (Candy Crush style) optimized for maximum revenue, ready for Play Store launch.
+User asked "What kind of apps make the most money?" and decided to build a Match-3 puzzle game (Candy Crush style) aimed at maximizing revenue through IAP, ads, and daily rewards.
+
+## Product Overview
+**Glimmer Quest** is a fully functional, cross-platform Match-3 puzzle game with:
+- 50 data-driven levels across 5 themed worlds
+- Monetization via Lives, Coins, Power-ups, Stripe payments, and Google AdMob
+- Mobile-ready structure (Capacitor Android and iOS projects)
+
+## Tech Stack
+- **Frontend:** React, Tailwind CSS, Lucide Icons
+- **Backend:** FastAPI, MongoDB
+- **Mobile:** Capacitor (iOS + Android)
+- **Payments:** Stripe (via emergentintegrations)
+- **Ads:** Google AdMob (mocked, awaiting publisher ID)
+
+---
+
+## Completed Phases
+
+### Phase 1: Continue After Loss System ✅
+**Completed:** April 2025
+- Server-side validation for continue purchases
+- Escalating costs: 50 → 100 → 200 coins
+- Max 3 continues per run
+- Ad-based continue option (mocked)
+- `pending_loss` state allows continues before final loss
+
+### Phase 2: Visual Feedback Upgrade ✅
+**Completed:** April 2025
+- CSS animations for match bursts
+- Screen shake on big matches (4+ gems)
+- Combo text overlays (2x, 3x, AMAZING!)
+- Cascade pulse effects
+- Special gem activation effects (line clears, explosions)
+
+### Phase 3: Level Expansion to 50 Levels ✅
+**Completed:** April 2025
+- Data-driven level config in `/app/frontend/src/config/levels.js`
+- 5 themed worlds (10 levels each)
+- Progressive obstacle introduction (ice → chains → blockers)
+- Difficulty badges (tutorial, easy, medium, hard, expert, master)
+
+### Phase 4: Level Map UI + Replay Fix ✅
+**Completed:** April 2025
+- World map with 5 themed worlds
+- Level nodes showing locked/unlocked/completed states
+- Replay earlier levels without affecting progression
+- Fixed: `selectedMapLevel` now correctly tracks played level
+- Fixed: `finalizeWin`/`finalizeLoss` send actual played level to backend
+- Context-aware post-game buttons (Next Level vs Back to Map)
+
+### Phase 5: Difficulty Tuning Pass ✅
+**Completed:** April 2025
+- Rebalanced all 50 levels for fair difficulty curve
+- Obstacle caps: 25% ice, 18% chain, 8% blocker (51% max total)
+- Level 50: 25,000 target / 20 moves (achievable with skill)
+- Early levels feel easy, late levels feel challenging but fair
+- Delayed obstacle introduction (ice at L6, chains at L10, blockers at L15)
+
+---
 
 ## Architecture
-- **Frontend**: React + Tailwind CSS + Howler.js + Capacitor (mobile)
-- **Backend**: FastAPI + MongoDB + Stripe
-- **Monetization**: Lives system, IAP via Stripe, AdMob ads (configured)
 
-## What's Been Implemented (April 1, 2026)
-
-### Core Game ✅
-- Match-3 mechanics (swap, match, cascade - max 15 cascades)
-- 8x8 gem board with 5 gem types (red, blue, green, yellow, purple)
-- Special gems (striped_h, striped_v, wrapped, color_bomb)
-- Level obstacles (ice, chains, blockers)
-- Progressive difficulty levels (10 levels)
-- Safety loop in processMatches to ensure no uncleared matches after cascades
-
-### Monetization ✅
-- Lives system (5 max, 30-min regen)
-- **Stripe Integration**: Real money purchases
-  - $0.99 - 500 Coins
-  - $4.99 - 2500 Coins  
-  - $9.99 - 6000 Coins
-  - $1.99 - 10 Lives
-  - $4.99 - Starter Pack
-  - $2.99 - Remove Ads Forever
-- In-game coin purchases for power-ups
-- AdMob ready (needs publisher ID)
-- Watch-ad rewards (simulated)
-
-### Engagement ✅
-- Daily rewards (7-day streak)
-- Achievements system
-- Leaderboard
-- Sound effects (via Howler.js)
-- **Share Score Feature** (NEW - April 1, 2026)
-  - Share button on game over modal (pink/purple gradient)
-  - Share high score button on main menu
-  - Uses Web Share API (mobile-native sharing to any app)
-  - Clipboard fallback for desktop browsers
-
-### Mobile Ready ✅
-- Capacitor configured for Android AND iOS
-- Touch-optimized controls
-- Responsive design
-- iOS build guide: `/app/store_assets/IOS_BUILD_GUIDE.md`
-
-### Store Assets Created ✅
-- `/app/store_assets/README.md` - App descriptions, keywords
-- `/app/store_assets/PRIVACY_POLICY.md` - Privacy policy template
-
-## Bug Fixes (April 1, 2026)
-
-### FIXED: Gems Grouping Without Disappearing
-- **Issue**: After cascades, 4+ gems would sometimes remain grouped without matching
-- **Root Cause**: processMatches function wasn't fully processing all cascading matches
-- **Fix Applied**: Added safety check loop (lines 1219-1267 in App.js) that:
-  - Continues processing matches until board is truly stable
-  - Runs up to 3 additional passes to catch edge cases
-- **Verification**: Tested 25+ swaps - no uncleared matches found
-
-### FIXED: Modal Overlay Blocking Clicks
-- **Issue**: Modal overlays intercepting pointer events after modal closed
-- **Status**: Verified working - modals open/close without blocking game board
-
-## Test Reports
-- `/app/test_reports/iteration_4.json` - Latest (100% pass rate)
-- Backend: 20/20 API tests passed
-- Frontend: All game mechanics verified working
-
-## Launch Checklist
-
-### Before Play Store Submission
-- [ ] Get AdMob Publisher ID → Update `/app/frontend/public/index.html`
-- [ ] Fill in Privacy Policy contact email
-- [ ] Create app icon (512x512 PNG)
-- [ ] Take 5+ screenshots
-- [ ] Create feature graphic (1024x500)
-- [ ] Build Android APK: `cd frontend && npm run build && npx cap add android && npx cap open android`
-- [ ] Sign APK with release keystore
-- [ ] Create Google Play Developer account ($25)
-- [ ] Host Privacy Policy (GitHub Pages works)
-
-### Production Deployment
-- [ ] Deploy backend to cloud (Railway recommended)
-- [ ] Update frontend env with production backend URL
-- [ ] Set up production MongoDB (MongoDB Atlas)
-- [ ] Configure Stripe webhook URL for production
-
-## Files Reference
-- Backend: `/app/backend/server.py`
-- Frontend: `/app/frontend/src/App.js`
-- Capacitor: `/app/frontend/capacitor.config.json`
-- Store Assets: `/app/store_assets/`
-- Test Reports: `/app/test_reports/`
-
-## Code Architecture
 ```
 /app/
 ├── backend/
-│   ├── server.py             # FastAPI backend (Player state, Shop, Stripe endpoints)
-│   ├── requirements.txt
-│   ├── tests/                # pytest tests
-│   └── .env
+│   ├── server.py             # FastAPI (game, shop, continue, Stripe)
+│   └── .env                  # MONGO_URL, DB_NAME, STRIPE_API_KEY
 ├── frontend/
-│   ├── public/               # index.html (AdMob script), manifest.json, icons
 │   ├── src/
-│   │   ├── App.js            # React Match-3 Game Engine + UI (~1880 lines)
-│   │   ├── hooks/            # useAdPlacement
-│   │   ├── utils/            # soundManager
-│   │   └── index.css         # Animations (matchPop, specialPulse)
-│   ├── android/              # Capacitor Android project files
-│   ├── ios/                  # Capacitor iOS project files (NEW)
-│   │   └── App/              # Xcode project
-│   └── capacitor.config.json
-├── store_assets/             # PRIVACY_POLICY.md, README.md, IOS_BUILD_GUIDE.md
-├── test_reports/
+│   │   ├── App.js            # Core game logic, state machine, modals
+│   │   ├── index.css         # Animations (Phase 2)
+│   │   ├── config/levels.js  # 50 level configs (Phase 3 + 5)
+│   │   └── components/
+│   │       └── LevelMap.jsx  # World map UI (Phase 4)
+│   ├── android/              # Capacitor Android
+│   └── ios/                  # Capacitor iOS
+├── store_assets/             # App store documentation
 └── memory/
+    └── PRD.md                # This file
 ```
 
-## Backlog (P2)
-- Refactor App.js into smaller components/hooks
-- Implement Stripe Webhooks for production
-- Polish app icons
-- Add more levels (currently 10)
-- Add tutorial for new players
+## Key API Endpoints
+- `POST /api/game/start` - Start game, deduct life
+- `POST /api/game/end` - End game, update score/level
+- `POST /api/game/continue` - Record continue (ad or coins)
+- `POST /api/shop/purchase` - Buy items with coins
+- `POST /api/iap/checkout` - Stripe checkout session
+- `GET /api/daily-reward/status/{id}` - Daily reward status
+
+## Database Schema (players collection)
+```javascript
+{
+  id: string,
+  player_name: string,
+  coins: number,
+  lives: number,
+  max_lives: number,
+  current_level: number,
+  high_score: number,
+  power_ups: { hammer, shuffle, color_bomb },
+  daily_reward_streak: number,
+  total_continues: number,
+  games_with_continues: number
+}
+```
+
+---
+
+## Future/Backlog Tasks
+
+### P1 (High Priority)
+- [ ] Add User's AdMob Publisher ID (inject into index.html)
+- [ ] Implement Stripe Webhooks for production
+
+### P2 (Medium Priority)
+- [ ] Polish app icons (replace placeholder SVGs)
+- [ ] Add tutorial for new players
+- [ ] Refactor App.js (2300+ lines) into smaller modules
+
+### P3 (Low Priority)
+- [ ] Add sound effects (sound manager exists, needs audio files)
+- [ ] Leaderboard improvements (weekly/monthly)
+- [ ] Social features (friend challenges)
+
+---
+
+## Mocked Integrations
+- **AdMob:** `useAdPlacement.js` auto-succeeds after 1.5s delay
+- **iOS/Android builds:** Capacitor configured but not compiled in container
+
+## Test Credentials
+Players are created dynamically. No persistent auth credentials.
