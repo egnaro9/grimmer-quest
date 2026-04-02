@@ -485,7 +485,10 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         <button
           data-testid="play-button"
           className="btn-3d btn-3d-gold w-full text-lg flex items-center justify-center gap-2"
-          onClick={() => onStartGame()}
+          onClick={() => {
+            console.log('[PlayButton] Clicked! Player:', player?.id, 'Lives:', player?.lives);
+            onStartGame();
+          }}
           disabled={!player || player.lives <= 0}
         >
           <Play className="w-6 h-6" />
@@ -1272,32 +1275,58 @@ function App() {
   };
 
   // Start game - optionally with a specific level (for replaying completed levels)
+  // PHASE 6 FIX: Don't block gameplay on API call - transition immediately
   const startGame = async (overrideLevel = null) => {
+    console.log('[startGame] Called with overrideLevel:', overrideLevel);
     soundManager.play('buttonClick');
     const targetLevel = overrideLevel || player.current_level;
+    console.log('[startGame] Target level:', targetLevel);
     
+    // Get level config first
+    const levelConfig = getLevelConfig(targetLevel);
+    console.log('[startGame] Level config:', levelConfig);
+    
+    // PHASE 6 FIX: Set up game state BEFORE API call
+    // This ensures gameplay starts even if backend is slow/unreachable
+    setBoard(createBoard(targetLevel));
+    setScore(0);
+    setMovesLeft(levelConfig.moves);
+    setComboCount(0);
+    setGameWon(false);
+    setNewHighScore(false);
+    setActivePowerUp(null);
+    setContinueCount(0);
+    setUsedContinues(false);
+    setContinueError(null);
+    setSelectedMapLevel(overrideLevel);
+    setShowLevelMap(false);
+    
+    // Transition to playing state IMMEDIATELY
+    setGameState('playing');
+    console.log('[startGame] Game state set to playing');
+    
+    // Now make API call in background to deduct life and sync
     try {
-      const res = await axios.post(`${API}/game/start?player_id=${player.id}`);
+      console.log('[startGame] API URL:', API);
+      console.log('[startGame] Making API call to start game...');
+      const res = await axios.post(`${API}/game/start?player_id=${player.id}`, {}, { timeout: 5000 });
+      console.log('[startGame] API response:', res.data);
+      
       if (res.data.success) {
-        const levelConfig = getLevelConfig(targetLevel);
+        // Update player state with server response
         setPlayer(prev => ({ ...prev, lives: res.data.lives_remaining, power_ups: res.data.power_ups }));
-        setBoard(createBoard(targetLevel));
-        setScore(0);
-        setMovesLeft(levelConfig.moves);
-        setComboCount(0);
-        setGameState('playing');
-        setGameWon(false);
-        setNewHighScore(false);
-        setActivePowerUp(null);
-        setContinueCount(0);
-        setUsedContinues(false);
-        setContinueError(null);
-        setSelectedMapLevel(overrideLevel); // Track if playing a specific level
-        setShowLevelMap(false); // Close map when starting
+        console.log('[startGame] Player state updated from server');
       }
     } catch (err) {
-      console.error('Error starting game:', err);
+      console.error('[startGame] API error (game continues anyway):', err.message);
+      // PHASE 6 FIX: Game is already playing, just log the error
+      // Deduct life locally as fallback
+      setPlayer(prev => ({ ...prev, lives: Math.max(0, (prev.lives || 1) - 1) }));
+      
       if (err.response?.status === 400) {
+        // No lives - this is a real problem, go back to menu
+        console.error('[startGame] No lives remaining');
+        setGameState('menu');
         alert('No lives remaining! Wait for regeneration or purchase more in the shop.');
       }
     }

@@ -142,6 +142,7 @@ export const LevelMap = ({
 
   // Handle play button
   const handlePlay = () => {
+    console.log('[LevelMap] Play clicked, level:', selectedLevel, 'lives:', playerLives, 'unlocked:', isSelectedUnlocked);
     if (isSelectedUnlocked && playerLives > 0) {
       onSelectLevel(selectedLevel);
     }
