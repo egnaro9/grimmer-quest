@@ -4,430 +4,449 @@
  * Data-driven level definitions for 50 levels.
  * Each level specifies target score, moves, obstacles, and difficulty.
  * 
- * Difficulty Progression:
- * - Levels 1-10:  Tutorial/Easy (no/minimal obstacles, generous moves)
- * - Levels 11-20: Medium (ice introduced, chains appear)
- * - Levels 21-35: Hard (more obstacles, blockers introduced, tighter moves)
- * - Levels 36-50: Expert (all obstacles, high targets, demanding)
+ * PHASE 5: Difficulty Tuning Pass
+ * ================================
+ * Design Philosophy:
+ * - Early levels (1-10): Confidence-building, ~100 points/move achievable
+ * - Mid levels (11-20): Introduce friction, ~250 points/move target
+ * - Hard levels (21-35): Strategic depth, ~500 points/move target
+ * - Expert levels (36-49): Mastery required, ~800 points/move target
+ * - Master level (50): Final challenge, hard but achievable
+ * 
+ * Obstacle Caps (to ensure playability):
+ * - Max ice: 25%
+ * - Max chain: 18%
+ * - Max blocker: 8%
+ * - Max combined: ~50% (leaves half the board playable)
  */
 
 export const LEVELS = [
   // ============================================
-  // TUTORIAL / EASY (Levels 1-10)
-  // Focus: Learn mechanics, feel successful
+  // WORLD 1: EMERALD GROVE (Levels 1-10)
+  // Tutorial / Easy - Learn mechanics, feel successful
+  // No obstacles until Level 6, very generous moves
   // ============================================
   {
     level: 1,
-    targetScore: 800,
-    moves: 35,
+    targetScore: 500,
+    moves: 40,
     obstacles: { ice: 0, chain: 0, blocker: 0 },
     difficulty: 'tutorial',
     description: 'Welcome to Glimmer Quest!'
   },
   {
     level: 2,
-    targetScore: 1200,
-    moves: 35,
+    targetScore: 800,
+    moves: 38,
     obstacles: { ice: 0, chain: 0, blocker: 0 },
     difficulty: 'tutorial',
-    description: 'Match gems to score!'
+    description: 'Match 3 gems to score!'
   },
   {
     level: 3,
-    targetScore: 1500,
-    moves: 32,
+    targetScore: 1000,
+    moves: 36,
     obstacles: { ice: 0, chain: 0, blocker: 0 },
-    difficulty: 'easy',
+    difficulty: 'tutorial',
     description: 'Try matching 4 for special gems!'
   },
   {
     level: 4,
+    targetScore: 1200,
+    moves: 35,
+    obstacles: { ice: 0, chain: 0, blocker: 0 },
+    difficulty: 'easy',
+    description: 'Cascades give bonus points!'
+  },
+  {
+    level: 5,
+    targetScore: 1500,
+    moves: 34,
+    obstacles: { ice: 0, chain: 0, blocker: 0 },
+    difficulty: 'easy',
+    description: 'Create combos for multipliers!'
+  },
+  {
+    level: 6,
     targetScore: 1800,
-    moves: 32,
-    obstacles: { ice: 0.03, chain: 0, blocker: 0 }, // First ice (3%)
+    moves: 33,
+    obstacles: { ice: 0.03, chain: 0, blocker: 0 },
     difficulty: 'easy',
     description: 'Watch out for ice!'
   },
   {
-    level: 5,
-    targetScore: 2200,
-    moves: 30,
+    level: 7,
+    targetScore: 2100,
+    moves: 32,
     obstacles: { ice: 0.05, chain: 0, blocker: 0 },
     difficulty: 'easy',
     description: 'Ice takes two matches to clear'
   },
   {
-    level: 6,
-    targetScore: 2600,
-    moves: 30,
+    level: 8,
+    targetScore: 2400,
+    moves: 32,
     obstacles: { ice: 0.06, chain: 0, blocker: 0 },
     difficulty: 'easy',
     description: 'More ice appears!'
   },
   {
-    level: 7,
-    targetScore: 3000,
-    moves: 30,
-    obstacles: { ice: 0.08, chain: 0, blocker: 0 },
-    difficulty: 'easy',
-    description: 'Create cascades for bonus points!'
-  },
-  {
-    level: 8,
-    targetScore: 3500,
-    moves: 28,
-    obstacles: { ice: 0.08, chain: 0.02, blocker: 0 }, // First chains (2%)
-    difficulty: 'easy',
-    description: 'Chains lock gems in place'
-  },
-  {
     level: 9,
-    targetScore: 4000,
-    moves: 28,
-    obstacles: { ice: 0.08, chain: 0.03, blocker: 0 },
+    targetScore: 2800,
+    moves: 31,
+    obstacles: { ice: 0.07, chain: 0, blocker: 0 },
     difficulty: 'easy',
-    description: 'Break chains to free gems!'
+    description: 'Almost to World 2!'
   },
   {
     level: 10,
-    targetScore: 4500,
-    moves: 28,
-    obstacles: { ice: 0.10, chain: 0.04, blocker: 0 },
+    targetScore: 3200,
+    moves: 30,
+    obstacles: { ice: 0.08, chain: 0.02, blocker: 0 },
     difficulty: 'easy',
-    description: 'First milestone reached!'
+    description: 'Chains lock gems in place!'
   },
 
   // ============================================
-  // MEDIUM (Levels 11-20)
-  // Focus: Introduce challenge, strategic thinking
+  // WORLD 2: CRYSTAL CAVES (Levels 11-20)
+  // Medium - Introduce challenge, strategic thinking
+  // Ice + chains, first blockers at Level 15
   // ============================================
   {
     level: 11,
-    targetScore: 5000,
-    moves: 28,
-    obstacles: { ice: 0.10, chain: 0.05, blocker: 0 },
+    targetScore: 3600,
+    moves: 30,
+    obstacles: { ice: 0.08, chain: 0.03, blocker: 0 },
     difficulty: 'medium',
-    description: 'Things are heating up!'
+    description: 'Welcome to Crystal Caves!'
   },
   {
     level: 12,
-    targetScore: 5500,
-    moves: 27,
-    obstacles: { ice: 0.12, chain: 0.05, blocker: 0 },
+    targetScore: 4000,
+    moves: 29,
+    obstacles: { ice: 0.09, chain: 0.04, blocker: 0 },
+    difficulty: 'medium',
+    description: 'Break chains to free gems'
+  },
+  {
+    level: 13,
+    targetScore: 4500,
+    moves: 28,
+    obstacles: { ice: 0.10, chain: 0.05, blocker: 0 },
     difficulty: 'medium',
     description: 'Plan your moves carefully'
   },
   {
-    level: 13,
-    targetScore: 6000,
-    moves: 27,
-    obstacles: { ice: 0.12, chain: 0.06, blocker: 0.01 }, // First blockers (1%)
-    difficulty: 'medium',
-    description: 'Blockers cannot be moved!'
-  },
-  {
     level: 14,
-    targetScore: 6500,
-    moves: 26,
-    obstacles: { ice: 0.12, chain: 0.06, blocker: 0.02 },
-    difficulty: 'medium',
-    description: 'Work around the blockers'
-  },
-  {
-    level: 15,
-    targetScore: 7000,
-    moves: 26,
-    obstacles: { ice: 0.14, chain: 0.07, blocker: 0.02 },
-    difficulty: 'medium',
-    description: 'Halfway to twenty!'
-  },
-  {
-    level: 16,
-    targetScore: 7500,
-    moves: 25,
-    obstacles: { ice: 0.14, chain: 0.08, blocker: 0.02 },
+    targetScore: 5000,
+    moves: 28,
+    obstacles: { ice: 0.10, chain: 0.06, blocker: 0 },
     difficulty: 'medium',
     description: 'Double chains appear now'
   },
   {
+    level: 15,
+    targetScore: 5500,
+    moves: 27,
+    obstacles: { ice: 0.11, chain: 0.06, blocker: 0.01 },
+    difficulty: 'medium',
+    description: 'Blockers cannot be moved!'
+  },
+  {
+    level: 16,
+    targetScore: 6000,
+    moves: 27,
+    obstacles: { ice: 0.12, chain: 0.07, blocker: 0.02 },
+    difficulty: 'medium',
+    description: 'Work around the blockers'
+  },
+  {
     level: 17,
-    targetScore: 8000,
-    moves: 25,
-    obstacles: { ice: 0.15, chain: 0.08, blocker: 0.03 },
+    targetScore: 6500,
+    moves: 26,
+    obstacles: { ice: 0.12, chain: 0.08, blocker: 0.02 },
     difficulty: 'medium',
     description: 'Use special gems wisely!'
   },
   {
     level: 18,
-    targetScore: 8500,
-    moves: 25,
-    obstacles: { ice: 0.15, chain: 0.10, blocker: 0.03 },
+    targetScore: 7000,
+    moves: 26,
+    obstacles: { ice: 0.13, chain: 0.08, blocker: 0.02 },
     difficulty: 'medium',
-    description: 'Chains are getting stronger'
+    description: 'Halfway to hard mode!'
   },
   {
     level: 19,
-    targetScore: 9000,
-    moves: 24,
-    obstacles: { ice: 0.16, chain: 0.10, blocker: 0.03 },
+    targetScore: 7500,
+    moves: 25,
+    obstacles: { ice: 0.14, chain: 0.09, blocker: 0.03 },
     difficulty: 'medium',
-    description: 'Almost to hard mode!'
+    description: 'Almost to Volcanic Peaks!'
   },
   {
     level: 20,
-    targetScore: 10000,
-    moves: 24,
-    obstacles: { ice: 0.18, chain: 0.10, blocker: 0.04 },
+    targetScore: 8000,
+    moves: 25,
+    obstacles: { ice: 0.14, chain: 0.10, blocker: 0.03 },
     difficulty: 'medium',
-    description: 'Second milestone reached!'
+    description: 'Crystal Caves conquered!'
   },
 
   // ============================================
-  // HARD (Levels 21-35)
-  // Focus: Real challenge, strategic depth required
+  // WORLD 3: VOLCANIC PEAKS (Levels 21-30)
+  // Hard - Real challenge, strategic depth required
+  // All obstacle types, moderate density
   // ============================================
   {
     level: 21,
-    targetScore: 11000,
-    moves: 24,
-    obstacles: { ice: 0.18, chain: 0.12, blocker: 0.04 },
+    targetScore: 8500,
+    moves: 25,
+    obstacles: { ice: 0.14, chain: 0.10, blocker: 0.03 },
     difficulty: 'hard',
-    description: 'Welcome to hard mode!'
+    description: 'Welcome to Volcanic Peaks!'
   },
   {
     level: 22,
-    targetScore: 12000,
-    moves: 23,
-    obstacles: { ice: 0.20, chain: 0.12, blocker: 0.04 },
+    targetScore: 9000,
+    moves: 24,
+    obstacles: { ice: 0.15, chain: 0.10, blocker: 0.03 },
     difficulty: 'hard',
-    description: 'Ice is everywhere!'
+    description: 'The heat is rising!'
   },
   {
     level: 23,
-    targetScore: 13000,
-    moves: 23,
-    obstacles: { ice: 0.20, chain: 0.14, blocker: 0.05 },
-    difficulty: 'hard',
-    description: 'Chains bind tightly'
-  },
-  {
-    level: 24,
-    targetScore: 14000,
-    moves: 22,
-    obstacles: { ice: 0.22, chain: 0.14, blocker: 0.05 },
+    targetScore: 9500,
+    moves: 24,
+    obstacles: { ice: 0.15, chain: 0.11, blocker: 0.04 },
     difficulty: 'hard',
     description: 'Every move counts!'
   },
   {
-    level: 25,
-    targetScore: 15000,
-    moves: 22,
-    obstacles: { ice: 0.22, chain: 0.15, blocker: 0.06 },
-    difficulty: 'hard',
-    description: 'Quarter century level!'
-  },
-  {
-    level: 26,
-    targetScore: 16000,
-    moves: 22,
-    obstacles: { ice: 0.24, chain: 0.15, blocker: 0.06 },
-    difficulty: 'hard',
-    description: 'Frosty challenge ahead'
-  },
-  {
-    level: 27,
-    targetScore: 17000,
-    moves: 21,
-    obstacles: { ice: 0.24, chain: 0.16, blocker: 0.06 },
+    level: 24,
+    targetScore: 10000,
+    moves: 24,
+    obstacles: { ice: 0.16, chain: 0.11, blocker: 0.04 },
     difficulty: 'hard',
     description: 'Think before you swap'
   },
   {
-    level: 28,
-    targetScore: 18000,
-    moves: 21,
-    obstacles: { ice: 0.25, chain: 0.16, blocker: 0.07 },
+    level: 25,
+    targetScore: 10500,
+    moves: 23,
+    obstacles: { ice: 0.16, chain: 0.12, blocker: 0.04 },
+    difficulty: 'hard',
+    description: 'Quarter century milestone!'
+  },
+  {
+    level: 26,
+    targetScore: 11000,
+    moves: 23,
+    obstacles: { ice: 0.17, chain: 0.12, blocker: 0.04 },
+    difficulty: 'hard',
+    description: 'Lava flows faster'
+  },
+  {
+    level: 27,
+    targetScore: 11500,
+    moves: 23,
+    obstacles: { ice: 0.17, chain: 0.13, blocker: 0.05 },
     difficulty: 'hard',
     description: 'Obstacles multiply!'
   },
   {
-    level: 29,
-    targetScore: 19000,
-    moves: 20,
-    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.07 },
-    difficulty: 'hard',
-    description: 'Fewer moves now!'
-  },
-  {
-    level: 30,
-    targetScore: 20000,
-    moves: 20,
-    obstacles: { ice: 0.26, chain: 0.18, blocker: 0.08 },
-    difficulty: 'hard',
-    description: 'Third milestone reached!'
-  },
-  {
-    level: 31,
-    targetScore: 21000,
-    moves: 20,
-    obstacles: { ice: 0.26, chain: 0.20, blocker: 0.08 },
-    difficulty: 'hard',
-    description: 'Chains dominate the board'
-  },
-  {
-    level: 32,
-    targetScore: 22000,
-    moves: 19,
-    obstacles: { ice: 0.28, chain: 0.20, blocker: 0.08 },
-    difficulty: 'hard',
-    description: 'Ice age incoming!'
-  },
-  {
-    level: 33,
-    targetScore: 23000,
-    moves: 19,
-    obstacles: { ice: 0.28, chain: 0.22, blocker: 0.09 },
-    difficulty: 'hard',
-    description: 'Almost to expert!'
-  },
-  {
-    level: 34,
-    targetScore: 24000,
-    moves: 18,
-    obstacles: { ice: 0.30, chain: 0.22, blocker: 0.09 },
+    level: 28,
+    targetScore: 12000,
+    moves: 22,
+    obstacles: { ice: 0.18, chain: 0.13, blocker: 0.05 },
     difficulty: 'hard',
     description: 'Precision required'
   },
   {
-    level: 35,
-    targetScore: 25000,
-    moves: 18,
-    obstacles: { ice: 0.30, chain: 0.24, blocker: 0.10 },
+    level: 29,
+    targetScore: 12500,
+    moves: 22,
+    obstacles: { ice: 0.18, chain: 0.14, blocker: 0.05 },
     difficulty: 'hard',
-    description: 'Final hard level!'
+    description: 'Almost to the citadel!'
+  },
+  {
+    level: 30,
+    targetScore: 13000,
+    moves: 22,
+    obstacles: { ice: 0.19, chain: 0.14, blocker: 0.05 },
+    difficulty: 'hard',
+    description: 'Volcanic Peaks conquered!'
   },
 
   // ============================================
-  // EXPERT (Levels 36-50)
-  // Focus: Mastery, all obstacles, tight constraints
+  // WORLD 4: FROZEN CITADEL (Levels 31-40)
+  // Expert - Mastery, all obstacles, tight but fair
+  // Obstacle density plateaus, focus on score
   // ============================================
   {
-    level: 36,
-    targetScore: 27000,
-    moves: 18,
-    obstacles: { ice: 0.30, chain: 0.25, blocker: 0.10 },
+    level: 31,
+    targetScore: 13500,
+    moves: 22,
+    obstacles: { ice: 0.19, chain: 0.14, blocker: 0.05 },
     difficulty: 'expert',
-    description: 'Welcome to expert mode!'
+    description: 'Welcome to the Citadel!'
+  },
+  {
+    level: 32,
+    targetScore: 14000,
+    moves: 21,
+    obstacles: { ice: 0.20, chain: 0.14, blocker: 0.05 },
+    difficulty: 'expert',
+    description: 'Ice dominates here'
+  },
+  {
+    level: 33,
+    targetScore: 14500,
+    moves: 21,
+    obstacles: { ice: 0.20, chain: 0.15, blocker: 0.06 },
+    difficulty: 'expert',
+    description: 'Chains bind tightly'
+  },
+  {
+    level: 34,
+    targetScore: 15000,
+    moves: 21,
+    obstacles: { ice: 0.21, chain: 0.15, blocker: 0.06 },
+    difficulty: 'expert',
+    description: 'Elite players only!'
+  },
+  {
+    level: 35,
+    targetScore: 15500,
+    moves: 20,
+    obstacles: { ice: 0.21, chain: 0.15, blocker: 0.06 },
+    difficulty: 'expert',
+    description: 'Halfway through expert!'
+  },
+  {
+    level: 36,
+    targetScore: 16000,
+    moves: 20,
+    obstacles: { ice: 0.22, chain: 0.16, blocker: 0.06 },
+    difficulty: 'expert',
+    description: 'Frozen fortress ahead'
   },
   {
     level: 37,
-    targetScore: 29000,
-    moves: 17,
-    obstacles: { ice: 0.32, chain: 0.25, blocker: 0.10 },
+    targetScore: 16500,
+    moves: 20,
+    obstacles: { ice: 0.22, chain: 0.16, blocker: 0.06 },
     difficulty: 'expert',
-    description: 'Only the skilled survive'
+    description: 'Combos are essential!'
   },
   {
     level: 38,
-    targetScore: 31000,
-    moves: 17,
-    obstacles: { ice: 0.32, chain: 0.26, blocker: 0.11 },
+    targetScore: 17000,
+    moves: 20,
+    obstacles: { ice: 0.23, chain: 0.16, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Chaos reigns!'
+    description: 'Special gems save the day'
   },
   {
     level: 39,
-    targetScore: 33000,
-    moves: 16,
-    obstacles: { ice: 0.34, chain: 0.26, blocker: 0.11 },
+    targetScore: 17500,
+    moves: 19,
+    obstacles: { ice: 0.23, chain: 0.17, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Tight margins'
+    description: 'Almost to the stars!'
   },
   {
     level: 40,
-    targetScore: 35000,
-    moves: 16,
-    obstacles: { ice: 0.34, chain: 0.28, blocker: 0.12 },
+    targetScore: 18000,
+    moves: 19,
+    obstacles: { ice: 0.24, chain: 0.17, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Fourth milestone reached!'
+    description: 'Frozen Citadel conquered!'
   },
+
+  // ============================================
+  // WORLD 5: CELESTIAL REALM (Levels 41-50)
+  // Master - Final challenge, hard but achievable
+  // Obstacle density caps, focus on skillful play
+  // ============================================
   {
     level: 41,
-    targetScore: 37000,
-    moves: 16,
-    obstacles: { ice: 0.35, chain: 0.28, blocker: 0.12 },
+    targetScore: 18500,
+    moves: 19,
+    obstacles: { ice: 0.24, chain: 0.17, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'The elite levels begin'
+    description: 'Ascend to the stars!'
   },
   {
     level: 42,
-    targetScore: 39000,
-    moves: 15,
-    obstacles: { ice: 0.35, chain: 0.30, blocker: 0.12 },
+    targetScore: 19000,
+    moves: 19,
+    obstacles: { ice: 0.24, chain: 0.18, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Chain overload!'
+    description: 'Celestial beauty surrounds'
   },
   {
     level: 43,
-    targetScore: 41000,
-    moves: 15,
-    obstacles: { ice: 0.36, chain: 0.30, blocker: 0.13 },
+    targetScore: 19500,
+    moves: 18,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Blockers everywhere'
+    description: 'Starlight guides the way'
   },
   {
     level: 44,
-    targetScore: 43000,
-    moves: 15,
-    obstacles: { ice: 0.36, chain: 0.32, blocker: 0.13 },
+    targetScore: 20000,
+    moves: 18,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.07 },
     difficulty: 'expert',
-    description: 'Near the summit'
+    description: 'Near the summit!'
   },
   {
     level: 45,
-    targetScore: 45000,
-    moves: 14,
-    obstacles: { ice: 0.38, chain: 0.32, blocker: 0.14 },
+    targetScore: 20500,
+    moves: 18,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
     difficulty: 'expert',
     description: 'Five levels remain!'
   },
   {
     level: 46,
-    targetScore: 47000,
-    moves: 14,
-    obstacles: { ice: 0.38, chain: 0.34, blocker: 0.14 },
+    targetScore: 21000,
+    moves: 18,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
     difficulty: 'expert',
     description: 'The final stretch'
   },
   {
     level: 47,
-    targetScore: 49000,
-    moves: 14,
-    obstacles: { ice: 0.40, chain: 0.34, blocker: 0.15 },
-    difficulty: 'expert',
+    targetScore: 21500,
+    moves: 17,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
+    difficulty: 'master',
     description: 'Almost legendary!'
   },
   {
     level: 48,
-    targetScore: 52000,
-    moves: 13,
-    obstacles: { ice: 0.40, chain: 0.36, blocker: 0.15 },
-    difficulty: 'expert',
+    targetScore: 22000,
+    moves: 17,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
+    difficulty: 'master',
     description: 'Penultimate challenge'
   },
   {
     level: 49,
-    targetScore: 55000,
-    moves: 13,
-    obstacles: { ice: 0.42, chain: 0.36, blocker: 0.16 },
-    difficulty: 'expert',
+    targetScore: 22500,
+    moves: 17,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
+    difficulty: 'master',
     description: 'One more to go!'
   },
   {
     level: 50,
-    targetScore: 60000,
-    moves: 12,
-    obstacles: { ice: 0.45, chain: 0.38, blocker: 0.18 },
+    targetScore: 25000,
+    moves: 20,
+    obstacles: { ice: 0.25, chain: 0.18, blocker: 0.08 },
     difficulty: 'master',
     description: 'GLIMMER MASTER!'
   }
@@ -455,7 +474,7 @@ export const WORLDS = [
   {
     id: 1,
     name: 'Emerald Grove',
-    levels: [1, 10],  // levels 1-10
+    levels: [1, 10],
     theme: 'tutorial',
     color: 'emerald',
     icon: '🌲',
@@ -464,7 +483,7 @@ export const WORLDS = [
   {
     id: 2,
     name: 'Crystal Caves',
-    levels: [11, 20],  // levels 11-20
+    levels: [11, 20],
     theme: 'medium',
     color: 'blue',
     icon: '💎',
@@ -473,7 +492,7 @@ export const WORLDS = [
   {
     id: 3,
     name: 'Volcanic Peaks',
-    levels: [21, 30],  // levels 21-30
+    levels: [21, 30],
     theme: 'hard',
     color: 'orange',
     icon: '🌋',
@@ -482,7 +501,7 @@ export const WORLDS = [
   {
     id: 4,
     name: 'Frozen Citadel',
-    levels: [31, 40],  // levels 31-40
+    levels: [31, 40],
     theme: 'expert',
     color: 'cyan',
     icon: '🏔️',
@@ -491,7 +510,7 @@ export const WORLDS = [
   {
     id: 5,
     name: 'Celestial Realm',
-    levels: [41, 50],  // levels 41-50
+    levels: [41, 50],
     theme: 'master',
     color: 'purple',
     icon: '✨',
