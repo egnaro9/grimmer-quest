@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2, Map } from "lucide-react";
+import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2, Map as MapIcon } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
 import { useAdPlacement } from "./hooks/useAdPlacement";
 import { getLevelConfig, getTotalLevels, DIFFICULTY_BADGES } from "./config/levels";
@@ -464,7 +464,7 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
             <span className={`text-xs px-2 py-1 rounded-full border ${DIFFICULTY_BADGES[levelConfig.difficulty] || DIFFICULTY_BADGES.easy}`}>
               {levelConfig.difficulty.toUpperCase()}
             </span>
-            <Map className="w-4 h-4 text-slate-400" />
+            <MapIcon className="w-4 h-4 text-slate-400" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1048,7 +1048,7 @@ const GameOverModal = ({
               className="btn-3d btn-3d-gold w-full flex items-center justify-center gap-2"
               onClick={onOpenMap}
             >
-              <Map className="w-5 h-5" />
+              <MapIcon className="w-5 h-5" />
               Back to Map
             </button>
           ) : (
