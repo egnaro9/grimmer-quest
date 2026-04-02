@@ -790,21 +790,121 @@ const LeaderboardModal = ({ leaderboard, currentPlayer, onClose }) => {
 const CONTINUE_COSTS = [50, 100, 200];
 const MAX_CONTINUES = 3;
 
-// Game Over Modal with Multiple Continue Options
+// Loss Modal - shown in pending_loss state (can still continue)
+const LossModal = ({ 
+  score, 
+  targetScore, 
+  coinsEarned,
+  level, 
+  playerCoins,
+  continueCount,
+  continueError,
+  isWatchingAd,
+  onWatchAdContinue, 
+  onCoinContinue,
+  onDeclineContinue
+}) => {
+  // Calculate current continue cost
+  const continuesRemaining = MAX_CONTINUES - continueCount;
+  const currentContinueCost = continueCount < MAX_CONTINUES ? CONTINUE_COSTS[continueCount] : null;
+  const canAffordContinue = currentContinueCost && playerCoins >= currentContinueCost;
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-content text-center">
+        <div className="mb-4">
+          <div className="text-6xl mb-2">😢</div>
+          <h2 className="font-heading text-4xl font-bold text-red-400">Out of Moves!</h2>
+        </div>
+
+        <div className="bg-black/30 rounded-xl p-4 mb-4">
+          <div className="text-4xl font-bold text-white mb-2">{score.toLocaleString()}</div>
+          <div className="text-slate-400">Target: {targetScore.toLocaleString()}</div>
+          <div className="text-amber-400 text-sm mt-1">+{coinsEarned} coins if you finish</div>
+        </div>
+
+        {/* Continue Options - available if continues remaining */}
+        {continuesRemaining > 0 ? (
+          <div className="bg-black/20 rounded-xl p-4 mb-4">
+            <p className="text-white font-bold mb-1">Keep Playing?</p>
+            <p className="text-slate-400 text-sm mb-3">
+              {continuesRemaining} continue{continuesRemaining !== 1 ? 's' : ''} remaining
+            </p>
+            
+            {continueError && (
+              <div className="bg-red-500/20 rounded-lg p-2 mb-3">
+                <p className="text-red-300 text-sm">{continueError}</p>
+              </div>
+            )}
+            
+            <div className="grid grid-cols-2 gap-2">
+              {/* Watch Ad Option */}
+              <button
+                data-testid="watch-ad-continue"
+                className="btn-3d bg-emerald-500 text-white border-b-4 border-emerald-700 flex flex-col items-center justify-center gap-1 py-3 disabled:opacity-50"
+                onClick={onWatchAdContinue}
+                disabled={isWatchingAd}
+              >
+                <Play className="w-5 h-5" />
+                <span className="text-xs">{isWatchingAd ? 'Loading...' : 'Watch Ad'}</span>
+                <span className="text-xs font-bold">+5 Moves</span>
+              </button>
+              
+              {/* Pay Coins Option */}
+              <button
+                data-testid="coin-continue"
+                className={`btn-3d flex flex-col items-center justify-center gap-1 py-3 ${
+                  canAffordContinue 
+                    ? 'bg-amber-500 text-black border-b-4 border-amber-700' 
+                    : 'bg-slate-600 text-slate-400 border-b-4 border-slate-700 cursor-not-allowed'
+                }`}
+                onClick={() => canAffordContinue && onCoinContinue(currentContinueCost)}
+                disabled={!canAffordContinue || isWatchingAd}
+              >
+                <Coins className="w-5 h-5" />
+                <span className="text-xs">{currentContinueCost} Coins</span>
+                <span className="text-xs font-bold">+5 Moves</span>
+              </button>
+            </div>
+            
+            {!canAffordContinue && currentContinueCost && (
+              <p className="text-red-400 text-xs mt-2">
+                Need {currentContinueCost - playerCoins} more coins
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="bg-red-500/20 rounded-xl p-3 mb-4">
+            <p className="text-red-300 text-sm font-bold">No continues remaining!</p>
+          </div>
+        )}
+
+        {/* Give Up / End Run */}
+        <button
+          data-testid="decline-continue-button"
+          className="btn-3d bg-slate-700 text-white border-b-4 border-slate-800 w-full"
+          onClick={onDeclineContinue}
+          disabled={isWatchingAd}
+        >
+          {continuesRemaining > 0 ? 'Give Up & End Run' : 'End Run'}
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Final Game Over Modal - shown after run is truly over (win or final loss)
 const GameOverModal = ({ 
   won, 
   score, 
   targetScore, 
   coinsEarned, 
   newHighScore, 
-  level, 
-  playerCoins,
+  level,
+  usedContinues,
   continueCount,
   onRestart, 
-  onMainMenu, 
-  onWatchAdContinue, 
-  onCoinContinue,
-  canContinue 
+  onMainMenu
 }) => {
   const [shareStatus, setShareStatus] = useState(null);
   
@@ -817,11 +917,6 @@ const GameOverModal = ({
     }
   };
 
-  // Calculate current continue cost
-  const currentContinueCost = continueCount < MAX_CONTINUES ? CONTINUE_COSTS[continueCount] : null;
-  const canAffordContinue = currentContinueCost && playerCoins >= currentContinueCost;
-  const continuesRemaining = MAX_CONTINUES - continueCount;
-
   return (
     <div className="modal-overlay">
       <div className="modal-content text-center">
@@ -833,19 +928,24 @@ const GameOverModal = ({
             </>
           ) : (
             <>
-              <div className="text-6xl mb-2">😢</div>
-              <h2 className="font-heading text-4xl font-bold text-red-400">Out of Moves!</h2>
+              <div className="text-6xl mb-2">💔</div>
+              <h2 className="font-heading text-4xl font-bold text-slate-400">Game Over</h2>
             </>
           )}
         </div>
 
-        <div className="bg-black/30 rounded-xl p-4 mb-6">
+        <div className="bg-black/30 rounded-xl p-4 mb-4">
           <div className="text-4xl font-bold text-white mb-2">{score.toLocaleString()}</div>
           <div className="text-slate-400">
             {won ? `Target: ${targetScore.toLocaleString()} ✓` : `Target: ${targetScore.toLocaleString()}`}
           </div>
           {newHighScore && (
             <div className="text-amber-400 font-bold mt-2 animate-pulse">🏆 New High Score!</div>
+          )}
+          {usedContinues && (
+            <div className="text-slate-500 text-sm mt-2">
+              Used {continueCount} continue{continueCount !== 1 ? 's' : ''}
+            </div>
           )}
         </div>
 
@@ -855,57 +955,6 @@ const GameOverModal = ({
         </div>
 
         <div className="space-y-3">
-          {/* Continue Options - Only show when lost and can still continue */}
-          {!won && canContinue && continuesRemaining > 0 && (
-            <div className="bg-black/20 rounded-xl p-4 mb-2">
-              <p className="text-slate-300 text-sm mb-3">
-                Continue playing? ({continuesRemaining} continue{continuesRemaining !== 1 ? 's' : ''} left)
-              </p>
-              
-              <div className="grid grid-cols-2 gap-2">
-                {/* Watch Ad Option - Always available */}
-                <button
-                  data-testid="watch-ad-continue"
-                  className="btn-3d bg-emerald-500 text-white border-b-4 border-emerald-700 flex flex-col items-center justify-center gap-1 py-3"
-                  onClick={onWatchAdContinue}
-                >
-                  <Play className="w-5 h-5" />
-                  <span className="text-xs">Watch Ad</span>
-                  <span className="text-xs font-bold">+5 Moves</span>
-                </button>
-                
-                {/* Pay Coins Option */}
-                <button
-                  data-testid="coin-continue"
-                  className={`btn-3d flex flex-col items-center justify-center gap-1 py-3 ${
-                    canAffordContinue 
-                      ? 'bg-amber-500 text-black border-b-4 border-amber-700' 
-                      : 'bg-slate-600 text-slate-400 border-b-4 border-slate-700 cursor-not-allowed'
-                  }`}
-                  onClick={() => canAffordContinue && onCoinContinue(currentContinueCost)}
-                  disabled={!canAffordContinue}
-                >
-                  <Coins className="w-5 h-5" />
-                  <span className="text-xs">{currentContinueCost} Coins</span>
-                  <span className="text-xs font-bold">+5 Moves</span>
-                </button>
-              </div>
-              
-              {!canAffordContinue && currentContinueCost && (
-                <p className="text-red-400 text-xs mt-2">
-                  Need {currentContinueCost - playerCoins} more coins
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* No more continues message */}
-          {!won && continuesRemaining === 0 && (
-            <div className="bg-red-500/20 rounded-xl p-3 mb-2">
-              <p className="text-red-300 text-sm">No continues remaining!</p>
-            </div>
-          )}
-
           {/* Share Score Button */}
           <button
             data-testid="share-score-button"
@@ -1003,10 +1052,11 @@ function App() {
   const [newHighScore, setNewHighScore] = useState(false);
   const [activePowerUp, setActivePowerUp] = useState(null);
   const [comboCount, setComboCount] = useState(0);
-  const [canContinue, setCanContinue] = useState(true);
   const [continueCount, setContinueCount] = useState(0);
+  const [usedContinues, setUsedContinues] = useState(false); // Track if any continues were used this run
   const [soundOn, setSoundOn] = useState(true);
   const [isWatchingAd, setIsWatchingAd] = useState(false);
+  const [continueError, setContinueError] = useState(null); // Track continue purchase errors
 
   // Player state
   const [player, setPlayer] = useState(null);
@@ -1124,8 +1174,9 @@ function App() {
         setGameWon(false);
         setNewHighScore(false);
         setActivePowerUp(null);
-        setCanContinue(true);
-        setContinueCount(0); // Reset continue counter for new game
+        setContinueCount(0);
+        setUsedContinues(false);
+        setContinueError(null);
       }
     } catch (err) {
       console.error('Error starting game:', err);
@@ -1135,26 +1186,33 @@ function App() {
     }
   };
 
-  // End game
-  const endGame = async (won) => {
-    setGameWon(won);
+  // Trigger loss - enters pending state, does NOT persist to server yet
+  const triggerLoss = () => {
+    soundManager.play('gameOver');
     const earned = Math.floor(score / 10);
     setCoinsEarned(earned);
+    setGameWon(false);
+    setGameState('pending_loss'); // Temporary loss state - can still continue
+  };
+
+  // Finalize win - immediate persistence since no continue option
+  const finalizeWin = async () => {
+    setGameWon(true);
+    const earned = Math.floor(score / 10);
+    setCoinsEarned(earned);
+    soundManager.play('levelUp');
     
-    if (won) {
-      soundManager.play('levelUp');
-      // Show interstitial ad between levels
-      await showInterstitialAd(`level_${player.current_level}_complete`);
-    } else {
-      soundManager.play('gameOver');
-    }
+    // Show interstitial ad between levels
+    await showInterstitialAd(`level_${player.current_level}_complete`);
     
     try {
       const res = await axios.post(`${API}/game/end`, {
         player_id: player.id,
         score: score,
         level: player.current_level,
-        moves_used: MOVES_PER_LEVEL - movesLeft
+        moves_used: MOVES_PER_LEVEL - movesLeft,
+        used_continues: usedContinues,
+        continue_count: continueCount
       });
       
       setNewHighScore(res.data.new_high_score);
@@ -1163,55 +1221,98 @@ function App() {
       console.error('Error ending game:', err);
     }
     
-    setGameState('gameover');
+    setGameState('gameover'); // Final game over state
   };
 
-  // Watch ad to continue
+  // Finalize loss - called when player declines continue or exhausts all continues
+  const finalizeLoss = async () => {
+    try {
+      const res = await axios.post(`${API}/game/end`, {
+        player_id: player.id,
+        score: score,
+        level: player.current_level,
+        moves_used: MOVES_PER_LEVEL - movesLeft + (continueCount * 5), // Include continued moves
+        used_continues: usedContinues,
+        continue_count: continueCount
+      });
+      
+      setNewHighScore(res.data.new_high_score);
+      await refreshPlayer();
+    } catch (err) {
+      console.error('Error ending game:', err);
+    }
+    
+    setGameState('gameover'); // Final game over state
+  };
+
+  // Watch ad to continue (server-tracked)
   const handleWatchAdContinue = async () => {
     setIsWatchingAd(true);
+    setContinueError(null);
+    
     try {
       const result = await showRewardedAd('continue_game');
       if (result.completed) {
-        soundManager.play('coinCollect');
-        setMovesLeft(prev => prev + 5);
-        setContinueCount(prev => prev + 1);
-        setGameState('playing');
+        // Record continue on server
+        const res = await axios.post(`${API}/game/continue`, {
+          player_id: player.id,
+          continue_type: 'ad',
+          continue_number: continueCount + 1
+        });
+        
+        if (res.data.success) {
+          soundManager.play('coinCollect');
+          setMovesLeft(prev => prev + 5);
+          setContinueCount(prev => prev + 1);
+          setUsedContinues(true);
+          setGameState('playing'); // Back to playing
+        }
       }
     } catch (err) {
-      console.error('Error showing ad:', err);
+      console.error('Error recording ad continue:', err);
+      setContinueError('Failed to record continue. Please try again.');
     }
     setIsWatchingAd(false);
   };
 
-  // Pay coins to continue
+  // Pay coins to continue (server-tracked, no local fallback)
   const handleCoinContinue = async (cost) => {
     if (!player || player.coins < cost) return;
     
+    setContinueError(null);
+    
     try {
-      // Deduct coins via API
-      const res = await axios.post(`${API}/shop/purchase`, {
+      // Record continue and deduct coins on server
+      const res = await axios.post(`${API}/game/continue`, {
         player_id: player.id,
-        item_type: 'continue',
-        quantity: 1,
+        continue_type: 'coins',
+        continue_number: continueCount + 1,
         cost: cost
       });
       
       if (res.data.success) {
         soundManager.play('coinCollect');
-        setPlayer(res.data.player);
+        setPlayer(res.data.player); // Updated player with deducted coins
         setMovesLeft(prev => prev + 5);
         setContinueCount(prev => prev + 1);
-        setGameState('playing');
+        setUsedContinues(true);
+        setGameState('playing'); // Back to playing
       }
     } catch (err) {
       console.error('Error using coins to continue:', err);
-      // Fallback: deduct locally if API fails
-      setPlayer(prev => ({ ...prev, coins: prev.coins - cost }));
-      soundManager.play('coinCollect');
-      setMovesLeft(prev => prev + 5);
-      setContinueCount(prev => prev + 1);
-      setGameState('playing');
+      // NO local fallback - show error to user
+      if (err.response?.data?.detail) {
+        setContinueError(err.response.data.detail);
+      } else {
+        setContinueError('Failed to continue. Please try again.');
+      }
     }
+  };
+
+  // Handle decline continue or give up
+  const handleDeclineContinue = async () => {
+    soundManager.play('buttonClick');
+    await finalizeLoss();
   };
 
   // Get target score for current level
@@ -1769,9 +1870,9 @@ function App() {
     const targetScore = getTargetScore();
     
     if (score >= targetScore) {
-      endGame(true);
+      finalizeWin(); // Win is immediately finalized
     } else if (movesLeft <= 0) {
-      endGame(false);
+      triggerLoss(); // Loss enters pending state first
     }
   }, [score, movesLeft, gameState, isProcessing]);
 
@@ -1888,6 +1989,24 @@ function App() {
         </div>
       )}
       
+      {/* Loss Modal - pending state, can still continue */}
+      {gameState === 'pending_loss' && (
+        <LossModal
+          score={score}
+          targetScore={getTargetScore()}
+          coinsEarned={coinsEarned}
+          level={player?.current_level || 1}
+          playerCoins={player?.coins || 0}
+          continueCount={continueCount}
+          continueError={continueError}
+          isWatchingAd={isWatchingAd}
+          onWatchAdContinue={handleWatchAdContinue}
+          onCoinContinue={handleCoinContinue}
+          onDeclineContinue={handleDeclineContinue}
+        />
+      )}
+      
+      {/* Final Game Over Modal - run is truly over */}
       {gameState === 'gameover' && (
         <GameOverModal
           won={gameWon}
@@ -1896,7 +2015,7 @@ function App() {
           coinsEarned={coinsEarned}
           newHighScore={newHighScore}
           level={player?.current_level || 1}
-          playerCoins={player?.coins || 0}
+          usedContinues={usedContinues}
           continueCount={continueCount}
           onRestart={startGame}
           onMainMenu={() => {
@@ -1904,9 +2023,6 @@ function App() {
             setGameState('menu');
             refreshPlayer();
           }}
-          onWatchAdContinue={handleWatchAdContinue}
-          onCoinContinue={handleCoinContinue}
-          canContinue={canContinue && !gameWon}
         />
       )}
       

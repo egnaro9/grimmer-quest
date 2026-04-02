@@ -71,6 +71,8 @@ class GameResult(BaseModel):
     score: int
     level: int
     moves_used: int
+    used_continues: bool = False
+    continue_count: int = 0
 
 class LeaderboardEntry(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -81,13 +83,18 @@ class LeaderboardEntry(BaseModel):
 
 class PurchaseRequest(BaseModel):
     player_id: str
-    item_type: str  # "lives", "hammer", "shuffle", "color_bomb", "coins", "continue"
+    item_type: str  # "lives", "hammer", "shuffle", "color_bomb", "coins"
     quantity: int = 1
-    cost: Optional[int] = None  # For continue purchases with dynamic cost
 
 class UsePowerUpRequest(BaseModel):
     player_id: str
     power_up_type: str  # "hammer", "shuffle", "color_bomb"
+
+class GameContinueRequest(BaseModel):
+    player_id: str
+    continue_type: str  # "ad" or "coins"
+    continue_number: int  # 1, 2, or 3
+    cost: Optional[int] = None  # Required if continue_type is "coins"
 
 class DailyRewardClaim(BaseModel):
     player_id: str
@@ -235,6 +242,11 @@ async def end_game(result: GameResult):
         "total_games_played": player["total_games_played"] + 1
     }
     
+    # Track games with continues
+    if result.used_continues:
+        games_with_continues = player.get("games_with_continues", 0) + 1
+        updates["games_with_continues"] = games_with_continues
+    
     # Update high score if beaten
     if result.score > player["high_score"]:
         updates["high_score"] = result.score
@@ -253,7 +265,9 @@ async def end_game(result: GameResult):
         "success": True,
         "coins_earned": coins_earned,
         "new_high_score": result.score > player["high_score"],
-        "level_completed": result.level >= player["current_level"]
+        "level_completed": result.level >= player["current_level"],
+        "used_continues": result.used_continues,
+        "continue_count": result.continue_count
     }
 
 # Shop
@@ -263,22 +277,6 @@ async def purchase_item(request: PurchaseRequest):
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     
-    # Handle continue purchase (dynamic cost)
-    if request.item_type == "continue":
-        if request.cost is None or request.cost <= 0:
-            raise HTTPException(status_code=400, detail="Invalid continue cost")
-        
-        if player["coins"] < request.cost:
-            raise HTTPException(status_code=400, detail="Not enough coins")
-        
-        await db.players.update_one(
-            {"id": request.player_id}, 
-            {"$set": {"coins": player["coins"] - request.cost}}
-        )
-        updated_player = await db.players.find_one({"id": request.player_id}, {"_id": 0})
-        return {"success": True, "player": updated_player}
-    
-    # Regular shop purchases
     if request.item_type not in SHOP_PRICES:
         raise HTTPException(status_code=400, detail="Invalid item type")
     
@@ -305,6 +303,54 @@ async def purchase_item(request: PurchaseRequest):
 @api_router.get("/shop/prices")
 async def get_shop_prices():
     return SHOP_PRICES
+
+# Game Continue - Server-tracked continue events
+CONTINUE_COSTS = [50, 100, 200]  # Escalating costs for continues 1, 2, 3
+
+@api_router.post("/game/continue", response_model=dict)
+async def game_continue(request: GameContinueRequest):
+    """Record a game continue event. For coin continues, also deducts coins."""
+    player = await db.players.find_one({"id": request.player_id}, {"_id": 0})
+    if not player:
+        raise HTTPException(status_code=404, detail="Player not found")
+    
+    # Validate continue number
+    if request.continue_number < 1 or request.continue_number > 3:
+        raise HTTPException(status_code=400, detail="Invalid continue number (must be 1-3)")
+    
+    updates = {}
+    
+    # For coin continues, validate and deduct cost
+    if request.continue_type == "coins":
+        expected_cost = CONTINUE_COSTS[request.continue_number - 1]
+        
+        # Validate cost matches expected
+        if request.cost != expected_cost:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid continue cost. Expected {expected_cost}, got {request.cost}"
+            )
+        
+        if player["coins"] < request.cost:
+            raise HTTPException(status_code=400, detail="Not enough coins")
+        
+        updates["coins"] = player["coins"] - request.cost
+    
+    # Track continues in player stats (optional analytics field)
+    total_continues = player.get("total_continues", 0) + 1
+    updates["total_continues"] = total_continues
+    
+    if updates:
+        await db.players.update_one({"id": request.player_id}, {"$set": updates})
+    
+    updated_player = await db.players.find_one({"id": request.player_id}, {"_id": 0})
+    
+    return {
+        "success": True,
+        "player": updated_player,
+        "continue_number": request.continue_number,
+        "continue_type": request.continue_type
+    }
 
 # Power-ups
 @api_router.post("/powerup/use", response_model=dict)
