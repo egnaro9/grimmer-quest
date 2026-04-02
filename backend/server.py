@@ -81,8 +81,9 @@ class LeaderboardEntry(BaseModel):
 
 class PurchaseRequest(BaseModel):
     player_id: str
-    item_type: str  # "lives", "hammer", "shuffle", "color_bomb", "coins"
+    item_type: str  # "lives", "hammer", "shuffle", "color_bomb", "coins", "continue"
     quantity: int = 1
+    cost: Optional[int] = None  # For continue purchases with dynamic cost
 
 class UsePowerUpRequest(BaseModel):
     player_id: str
@@ -262,6 +263,22 @@ async def purchase_item(request: PurchaseRequest):
     if not player:
         raise HTTPException(status_code=404, detail="Player not found")
     
+    # Handle continue purchase (dynamic cost)
+    if request.item_type == "continue":
+        if request.cost is None or request.cost <= 0:
+            raise HTTPException(status_code=400, detail="Invalid continue cost")
+        
+        if player["coins"] < request.cost:
+            raise HTTPException(status_code=400, detail="Not enough coins")
+        
+        await db.players.update_one(
+            {"id": request.player_id}, 
+            {"$set": {"coins": player["coins"] - request.cost}}
+        )
+        updated_player = await db.players.find_one({"id": request.player_id}, {"_id": 0})
+        return {"success": True, "player": updated_player}
+    
+    # Regular shop purchases
     if request.item_type not in SHOP_PRICES:
         raise HTTPException(status_code=400, detail="Invalid item type")
     
