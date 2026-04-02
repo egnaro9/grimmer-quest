@@ -448,6 +448,78 @@ export const getLevelConfig = (levelNumber) => {
 export const getTotalLevels = () => LEVELS.length;
 
 /**
+ * World definitions for map progression
+ * Each world contains 10 levels
+ */
+export const WORLDS = [
+  {
+    id: 1,
+    name: 'Emerald Grove',
+    levels: [1, 10],  // levels 1-10
+    theme: 'tutorial',
+    color: 'emerald',
+    icon: '🌲',
+    description: 'Begin your journey in the peaceful grove'
+  },
+  {
+    id: 2,
+    name: 'Crystal Caves',
+    levels: [11, 20],  // levels 11-20
+    theme: 'medium',
+    color: 'blue',
+    icon: '💎',
+    description: 'Venture into the sparkling depths'
+  },
+  {
+    id: 3,
+    name: 'Volcanic Peaks',
+    levels: [21, 30],  // levels 21-30
+    theme: 'hard',
+    color: 'orange',
+    icon: '🌋',
+    description: 'Brave the fiery mountains'
+  },
+  {
+    id: 4,
+    name: 'Frozen Citadel',
+    levels: [31, 40],  // levels 31-40
+    theme: 'expert',
+    color: 'cyan',
+    icon: '🏔️',
+    description: 'Conquer the icy fortress'
+  },
+  {
+    id: 5,
+    name: 'Celestial Realm',
+    levels: [41, 50],  // levels 41-50
+    theme: 'master',
+    color: 'purple',
+    icon: '✨',
+    description: 'Ascend to the stars'
+  }
+];
+
+/**
+ * Get world for a specific level
+ */
+export const getWorldForLevel = (levelNumber) => {
+  return WORLDS.find(w => levelNumber >= w.levels[0] && levelNumber <= w.levels[1]) || WORLDS[0];
+};
+
+/**
+ * Get levels in a specific world
+ */
+export const getLevelsInWorld = (worldId) => {
+  const world = WORLDS.find(w => w.id === worldId);
+  if (!world) return [];
+  const levels = [];
+  for (let i = world.levels[0]; i <= world.levels[1]; i++) {
+    levels.push(getLevelConfig(i));
+  }
+  return levels;
+};
+
+/**
  * Difficulty color mapping for UI
  */
 export const DIFFICULTY_COLORS = {
@@ -469,4 +541,40 @@ export const DIFFICULTY_BADGES = {
   hard: 'bg-orange-500/20 text-orange-500 border-orange-500/40',
   expert: 'bg-red-500/20 text-red-500 border-red-500/40',
   master: 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+};
+
+/**
+ * World theme colors for map
+ */
+export const WORLD_COLORS = {
+  emerald: {
+    bg: 'from-emerald-900/80 to-emerald-950/90',
+    node: 'bg-emerald-500',
+    path: 'bg-emerald-700',
+    glow: 'shadow-emerald-500/50'
+  },
+  blue: {
+    bg: 'from-blue-900/80 to-blue-950/90',
+    node: 'bg-blue-500',
+    path: 'bg-blue-700',
+    glow: 'shadow-blue-500/50'
+  },
+  orange: {
+    bg: 'from-orange-900/80 to-orange-950/90',
+    node: 'bg-orange-500',
+    path: 'bg-orange-700',
+    glow: 'shadow-orange-500/50'
+  },
+  cyan: {
+    bg: 'from-cyan-900/80 to-cyan-950/90',
+    node: 'bg-cyan-500',
+    path: 'bg-cyan-700',
+    glow: 'shadow-cyan-500/50'
+  },
+  purple: {
+    bg: 'from-purple-900/80 to-purple-950/90',
+    node: 'bg-purple-500',
+    path: 'bg-purple-700',
+    glow: 'shadow-purple-500/50'
+  }
 };

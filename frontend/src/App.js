@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import "@/App.css";
 import axios from "axios";
-import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2 } from "lucide-react";
+import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2, Map } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
 import { useAdPlacement } from "./hooks/useAdPlacement";
 import { getLevelConfig, getTotalLevels, DIFFICULTY_BADGES } from "./config/levels";
+import { LevelMap } from "./components/LevelMap";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -395,7 +396,7 @@ const PowerUpsBar = ({ powerUps, onUsePowerUp, activePowerUp }) => {
 };
 
 // Main Menu
-const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, onOpenAchievements, dailyRewardAvailable }) => {
+const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDailyReward, onOpenAchievements, onOpenMap, dailyRewardAvailable }) => {
   const [shareStatus, setShareStatus] = useState(null);
   
   // Get level config for display
@@ -451,13 +452,20 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         </div>
       </div>
 
-      {/* Level Preview Card */}
-      <div className="glass rounded-xl p-4 mb-6 w-full max-w-sm">
+      {/* Level Preview Card - Now clickable to open map */}
+      <button
+        data-testid="level-preview-card"
+        className="glass rounded-xl p-4 mb-6 w-full max-w-sm text-left hover:bg-white/10 transition-colors cursor-pointer"
+        onClick={onOpenMap}
+      >
         <div className="flex items-center justify-between mb-2">
           <span className="text-white font-bold">Level {player?.current_level || 1}</span>
-          <span className={`text-xs px-2 py-1 rounded-full border ${DIFFICULTY_BADGES[levelConfig.difficulty] || DIFFICULTY_BADGES.easy}`}>
-            {levelConfig.difficulty.toUpperCase()}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className={`text-xs px-2 py-1 rounded-full border ${DIFFICULTY_BADGES[levelConfig.difficulty] || DIFFICULTY_BADGES.easy}`}>
+              {levelConfig.difficulty.toUpperCase()}
+            </span>
+            <Map className="w-4 h-4 text-slate-400" />
+          </div>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="text-slate-400">
@@ -470,13 +478,14 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
         {levelConfig.description && (
           <p className="text-slate-500 text-xs mt-2 italic">{levelConfig.description}</p>
         )}
-      </div>
+        <p className="text-slate-600 text-xs mt-2 text-center">Tap to view world map</p>
+      </button>
 
       <div className="space-y-4 w-full max-w-sm">
         <button
           data-testid="play-button"
           className="btn-3d btn-3d-gold w-full text-lg flex items-center justify-center gap-2"
-          onClick={onStartGame}
+          onClick={() => onStartGame()}
           disabled={!player || player.lives <= 0}
         >
           <Play className="w-6 h-6" />
@@ -1109,6 +1118,10 @@ function App() {
   const [specialEffects, setSpecialEffects] = useState([]); // [{ id, type, x, y }]
   const [isCascading, setIsCascading] = useState(false);
 
+  // Level map state (Phase 4)
+  const [showLevelMap, setShowLevelMap] = useState(false);
+  const [selectedMapLevel, setSelectedMapLevel] = useState(null);
+
   // Player state
   const [player, setPlayer] = useState(null);
   const [showNameInput, setShowNameInput] = useState(true);
@@ -1210,17 +1223,19 @@ function App() {
     }
   };
 
-  // Start game
-  const startGame = async () => {
+  // Start game - optionally with a specific level (for replaying completed levels)
+  const startGame = async (overrideLevel = null) => {
     soundManager.play('buttonClick');
+    const targetLevel = overrideLevel || player.current_level;
+    
     try {
       const res = await axios.post(`${API}/game/start?player_id=${player.id}`);
       if (res.data.success) {
-        const levelConfig = getLevelConfig(player.current_level);
+        const levelConfig = getLevelConfig(targetLevel);
         setPlayer(prev => ({ ...prev, lives: res.data.lives_remaining, power_ups: res.data.power_ups }));
-        setBoard(createBoard(player.current_level));
+        setBoard(createBoard(targetLevel));
         setScore(0);
-        setMovesLeft(levelConfig.moves); // Use level-specific move count
+        setMovesLeft(levelConfig.moves);
         setComboCount(0);
         setGameState('playing');
         setGameWon(false);
@@ -1229,12 +1244,21 @@ function App() {
         setContinueCount(0);
         setUsedContinues(false);
         setContinueError(null);
+        setSelectedMapLevel(overrideLevel); // Track if playing a specific level
+        setShowLevelMap(false); // Close map when starting
       }
     } catch (err) {
       console.error('Error starting game:', err);
       if (err.response?.status === 400) {
         alert('No lives remaining! Wait for regeneration or purchase more in the shop.');
       }
+    }
+  };
+
+  // Handle selecting a level from the map
+  const handleSelectLevelFromMap = (level) => {
+    if (level <= player.current_level && player.lives > 0) {
+      startGame(level);
     }
   };
 
@@ -2007,6 +2031,10 @@ function App() {
             soundManager.play('buttonClick');
             setShowAchievements(true);
           }}
+          onOpenMap={() => {
+            soundManager.play('buttonClick');
+            setShowLevelMap(true);
+          }}
           dailyRewardAvailable={dailyRewardStatus?.can_claim}
         />
       )}
@@ -2212,6 +2240,16 @@ function App() {
           leaderboard={leaderboard}
           currentPlayer={player}
           onClose={() => setShowLeaderboard(false)}
+        />
+      )}
+      
+      {/* Level Map (Phase 4) */}
+      {showLevelMap && (
+        <LevelMap
+          currentLevel={player?.current_level || 1}
+          onSelectLevel={handleSelectLevelFromMap}
+          onClose={() => setShowLevelMap(false)}
+          playerLives={player?.lives || 0}
         />
       )}
     </div>
