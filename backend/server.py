@@ -1,5 +1,8 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Request
 from dotenv import load_dotenv
+load_dotenv()  # load .env before any os.environ access
+
+import certifi
+from fastapi import FastAPI, APIRouter, HTTPException, Request
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 import os
@@ -10,14 +13,19 @@ from typing import List, Optional, Dict
 import uuid
 from datetime import datetime, timezone, timedelta
 import random
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+try:
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+    STRIPE_AVAILABLE = True
+except ImportError:
+    STRIPE_AVAILABLE = False
+    logging.warning("emergentintegrations not available — Stripe/IAP endpoints disabled (local dev mode)")
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
+client = AsyncIOMotorClient(mongo_url, tlsCAFile=certifi.where())
 db = client[os.environ['DB_NAME']]
 
 # Create the main app without a prefix
@@ -515,6 +523,8 @@ def get_package_description(pkg):
 @api_router.post("/iap/checkout")
 async def create_checkout_session(request: CheckoutRequest, http_request: Request):
     """Create a Stripe checkout session for a package"""
+    if not STRIPE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Payment system unavailable in local dev mode")
     # Validate package exists
     if request.package_id not in IAP_PACKAGES:
         raise HTTPException(status_code=400, detail="Invalid package")
@@ -573,6 +583,8 @@ async def create_checkout_session(request: CheckoutRequest, http_request: Reques
 @api_router.get("/iap/status/{session_id}")
 async def get_payment_status(session_id: str):
     """Check payment status and fulfill if completed"""
+    if not STRIPE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Payment system unavailable in local dev mode")
     # Find transaction
     transaction = await db.payment_transactions.find_one({"session_id": session_id}, {"_id": 0})
     if not transaction:
@@ -650,6 +662,8 @@ async def fulfill_purchase(player_id: str, package_id: str):
 @api_router.post("/webhook/stripe")
 async def stripe_webhook(request: Request):
     """Handle Stripe webhooks"""
+    if not STRIPE_AVAILABLE:
+        raise HTTPException(status_code=503, detail="Payment system unavailable in local dev mode")
     body = await request.body()
     signature = request.headers.get("Stripe-Signature")
     

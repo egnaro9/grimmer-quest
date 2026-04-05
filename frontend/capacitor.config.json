@@ -3,7 +3,7 @@
   "appName": "Glimmer Quest",
   "webDir": "build",
   "server": {
-    "androidScheme": "https",
+    "androidScheme": "http",
     "iosScheme": "https"
   },
   "ios": {

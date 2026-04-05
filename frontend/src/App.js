@@ -9,6 +9,7 @@ import { LevelMap } from "./components/LevelMap";
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+console.log('[config] BACKEND_URL:', BACKEND_URL, '| API:', API);
 
 // Game constants
 const BOARD_SIZE = 8;
@@ -1094,11 +1095,15 @@ const NameInputModal = ({ onSubmit }) => {
   const [name, setName] = useState('');
 
   const handleSubmit = (e) => {
-    e.preventDefault();
-    if (name.trim()) {
-      soundManager.play('buttonClick');
-      onSubmit(name.trim());
+    if (e && e.preventDefault) e.preventDefault();
+    console.log('[StartPlaying] handleSubmit fired, name:', JSON.stringify(name));
+    if (!name.trim()) {
+      console.log('[StartPlaying] blocked because name is empty');
+      return;
     }
+    console.log('[StartPlaying] proceeding to create player');
+    soundManager.play('buttonClick');
+    onSubmit(name.trim());
   };
 
   return (
@@ -1108,7 +1113,7 @@ const NameInputModal = ({ onSubmit }) => {
           GLIMMER <span className="text-amber-400">QUEST</span>
         </h2>
         <p className="text-slate-400 mb-6">Enter your name to start playing!</p>
-        
+
         <form onSubmit={handleSubmit}>
           <input
             type="text"
@@ -1118,13 +1123,13 @@ const NameInputModal = ({ onSubmit }) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={20}
-            autoFocus
           />
           <button
-            type="submit"
+            type="button"
             data-testid="start-game-button"
             className="btn-3d btn-3d-gold w-full text-lg"
-            disabled={!name.trim()}
+            onPointerDown={() => console.log('[StartPlaying] button pressed, name:', JSON.stringify(name))}
+            onClick={handleSubmit}
           >
             Start Playing!
           </button>
@@ -1172,6 +1177,7 @@ function App() {
   // Level map state (Phase 4)
   const [showLevelMap, setShowLevelMap] = useState(false);
   const [selectedMapLevel, setSelectedMapLevel] = useState(null);
+  const [isReplayGame, setIsReplayGame] = useState(false); // captured at game start, not after level advances
 
   // Player state
   const [player, setPlayer] = useState(null);
@@ -1192,6 +1198,13 @@ function App() {
   // Drag state
   const dragStart = useRef(null);
   const isDragging = useRef(false);
+
+  // Played level ref — set in startGame, read in finalizeWin/finalizeLoss.
+  // useRef bypasses stale closure issues in the win-detection useEffect.
+  const playedLevelRef = useRef(1);
+
+  // Player ID ref — always current, prevents stale-closure guard failures in refreshPlayer.
+  const playerIdRef = useRef(null);
 
   // Toggle sound
   const toggleSound = () => {
@@ -1233,24 +1246,40 @@ function App() {
 
   // Create or load player
   const handleCreatePlayer = async (name) => {
+    console.log('[CreatePlayerAudit] entry A — name:', name, 'API:', API);
     try {
-      const res = await axios.post(`${API}/player/create`, { player_name: name });
+      const url = `${API}/player/create`;
+      const payload = { player_name: name };
+      console.log('[CreatePlayerAudit] request URL', url);
+      console.log('[CreatePlayerAudit] request payload', JSON.stringify(payload));
+      console.log('[CreatePlayerAudit] axios version', axios.VERSION, '| baseURL:', axios.defaults.baseURL || 'none');
+      const res = await axios.post(url, payload);
       setPlayer(res.data);
+      playerIdRef.current = res.data.id;
       setShowNameInput(false);
       loadDailyRewardStatus(res.data.id);
     } catch (err) {
+      console.error('[CreatePlayerAudit] request failed', err?.message, err?.code, err?.response?.status);
       console.error('Error creating player:', err);
     }
   };
 
   // Refresh player data
   const refreshPlayer = async () => {
-    if (!player?.id) return;
+    const playerId = player?.id || playerIdRef.current;
+    if (!playerId) {
+      console.error('[refreshPlayer] no player id available (closure stale and ref empty)');
+      return null;
+    }
     try {
-      const res = await axios.get(`${API}/player/${player.id}`);
+      const res = await axios.get(`${API}/player/${playerId}`);
+      console.log('[refreshPlayer] current_level:', res.data?.current_level, '| full player:', JSON.stringify(res.data));
       setPlayer(res.data);
+      if (res.data?.id) playerIdRef.current = res.data.id;
+      return res.data;
     } catch (err) {
-      console.error('Error refreshing player:', err);
+      console.error('[refreshPlayer] API call failed:', err.message, '| URL:', `${API}/player/${playerId}`);
+      return null;
     }
   };
 
@@ -1280,6 +1309,9 @@ function App() {
     const targetLevel = overrideLevel || player?.current_level || 1;
     const levelConfig = getLevelConfig(targetLevel);
 
+    // Lock in the played level immediately — ref is always current regardless of closures
+    playedLevelRef.current = targetLevel;
+
     // Set all gameplay state before any async work so the board renders instantly
     console.log('[startGame] immediate start, level:', targetLevel);
     soundManager.play('buttonClick');
@@ -1295,6 +1327,7 @@ function App() {
     setUsedContinues(false);
     setContinueError(null);
     setSelectedMapLevel(overrideLevel);
+    setIsReplayGame(overrideLevel !== null && overrideLevel < (player?.current_level || 1));
     setShowLevelMap(false);
     setGameState('playing');
 
@@ -1339,39 +1372,49 @@ function App() {
     const earned = Math.floor(score / 10);
     setCoinsEarned(earned);
     soundManager.play('levelUp');
-    
-    // Determine the actual level that was played
-    const playedLevel = selectedMapLevel || player.current_level;
-    
+
+    // Read from ref — always the value set by startGame, never stale
+    const playedLevel = playedLevelRef.current || 1;
+
     // Show interstitial ad between levels
     await showInterstitialAd(`level_${playedLevel}_complete`);
-    
+
     try {
       const levelConfig = getLevelConfig(playedLevel);
-      const res = await axios.post(`${API}/game/end`, {
+      const payload = {
         player_id: player.id,
         score: score,
-        level: playedLevel,  // FIX: Send actual played level, not current_level
+        level: playedLevel,
         moves_used: levelConfig.moves - movesLeft,
         used_continues: usedContinues,
         continue_count: continueCount
-      });
-      
+      };
+      console.log('[finalizeWin] payload to /api/game/end:', payload);
+      console.log('[finalizeWin] full URL:', `${API}/game/end`);
+      const res = await axios.post(`${API}/game/end`, payload);
+      console.log('[finalizeWin] server response:', res.data);
       setNewHighScore(res.data.new_high_score);
-      await refreshPlayer();
     } catch (err) {
-      console.error('Error ending game:', err);
+      console.error('[finalizeWin] game/end API failed:', err.message);
     }
-    
-    setGameState('gameover'); // Final game over state
+
+    // Always refresh so current_level updates even if game/end failed
+    const refreshed = await refreshPlayer();
+    if (!refreshed) {
+      console.error('[finalizeWin] refreshPlayer returned null — backend unreachable or player id missing');
+    } else {
+      console.log('[finalizeWin] current_level after refresh:', refreshed?.current_level, '| full player:', JSON.stringify(refreshed));
+    }
+
+    setGameState('gameover');
   };
 
   // Finalize loss - called when player declines continue or exhausts all continues
   // PHASE 4 FIX: Use actual played level (selectedMapLevel) not player.current_level
   const finalizeLoss = async () => {
-    // Determine the actual level that was played
-    const playedLevel = selectedMapLevel || player.current_level;
-    
+    // Read from ref — always the value set by startGame, never stale
+    const playedLevel = playedLevelRef.current || 1;
+
     try {
       const levelConfig = getLevelConfig(playedLevel);
       const res = await axios.post(`${API}/game/end`, {
@@ -2246,7 +2289,7 @@ function App() {
           level={player?.current_level || 1}
           playedLevel={selectedMapLevel || player?.current_level || 1}
           currentLevel={player?.current_level || 1}
-          wasReplay={selectedMapLevel !== null && selectedMapLevel < player?.current_level}
+          wasReplay={isReplayGame}
           usedContinues={usedContinues}
           continueCount={continueCount}
           onPlayNext={() => {
@@ -2341,6 +2384,7 @@ function App() {
       )}
       
       {/* Level Map (Phase 4) */}
+      {showLevelMap && console.log('[LevelMap render] player.current_level:', player?.current_level)}
       {showLevelMap && (
         <LevelMap
           currentLevel={player?.current_level || 1}
