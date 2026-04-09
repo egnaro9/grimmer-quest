@@ -700,6 +700,10 @@ async def stripe_webhook(request: Request):
 # Include the router in the main app
 app.include_router(api_router)
 
+@app.get("/")
+def root():
+    return {"message": "Glimmer Quest backend is live"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
