@@ -1185,7 +1185,16 @@ function App() {
   const [showNameInput, setShowNameInput] = useState(true);
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
   const [isBootstrappingPlayer, setIsBootstrappingPlayer] = useState(true);
-  
+  const [showIntro, setShowIntro] = useState(true);
+
+  // Hold intro visible for at least 500ms after bootstrap completes
+  useEffect(() => {
+    if (!isBootstrappingPlayer) {
+      const timer = setTimeout(() => setShowIntro(false), 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isBootstrappingPlayer]);
+
   // UI state
   const [showShop, setShowShop] = useState(false);
   const [showDailyReward, setShowDailyReward] = useState(false);
@@ -2160,8 +2169,8 @@ function App() {
     <div className="min-h-screen relative">
       <div className="magical-bg" />
 
-      {isBootstrappingPlayer && (
-        <div className="fixed inset-0 flex flex-col items-center justify-center z-50" style={{ backgroundColor: '#0B0B13' }}>
+      {showIntro && (
+        <div className="fixed inset-0 flex flex-col items-center justify-center z-50 animate-fade-in" style={{ backgroundColor: '#0B0B13' }}>
           <p className="font-heading text-2xl font-bold text-white tracking-widest mb-2">Seraph Light Studios</p>
           <p className="text-amber-400 text-lg font-bold">Glimmer Quest</p>
         </div>
