@@ -3,6 +3,7 @@ import "@/App.css";
 import axios from "axios";
 import { Heart, Coins, Trophy, Gift, ShoppingBag, Play, Hammer, Shuffle, Sparkles, X, Volume2, VolumeX, Star, Zap, Award, Lock, Snowflake, Link2, CreditCard, Loader2, CheckCircle, XCircle, Share2, Map as MapIcon } from "lucide-react";
 import { soundManager } from "./utils/soundManager";
+import { SplashScreen } from '@capacitor/splash-screen';
 import { useAdPlacement } from "./hooks/useAdPlacement";
 import { getLevelConfig, getTotalLevels, DIFFICULTY_BADGES } from "./config/levels";
 import { LevelMap } from "./components/LevelMap";
@@ -1187,10 +1188,13 @@ function App() {
   const [isBootstrappingPlayer, setIsBootstrappingPlayer] = useState(true);
   const [showIntro, setShowIntro] = useState(true);
 
-  // Hold intro visible for at least 500ms after bootstrap completes
+  // Hold intro visible for at least 500ms after bootstrap completes, then hide splash
   useEffect(() => {
     if (!isBootstrappingPlayer) {
-      const timer = setTimeout(() => setShowIntro(false), 500);
+      const timer = setTimeout(() => {
+        setShowIntro(false);
+        SplashScreen.hide();
+      }, 500);
       return () => clearTimeout(timer);
     }
   }, [isBootstrappingPlayer]);
