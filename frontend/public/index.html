@@ -42,9 +42,19 @@
                 background: #0B0B13;
             }
             #startup-shell img {
+                position: absolute;
+                transition: opacity 0.35s ease;
+            }
+            #startup-icon {
                 width: 120px;
                 height: 120px;
                 border-radius: 24px;
+                opacity: 1;
+            }
+            #startup-splash {
+                max-width: 280px;
+                max-height: 80vh;
+                opacity: 0;
             }
         </style>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
@@ -75,8 +85,17 @@
         <noscript>You need to enable JavaScript to run this app.</noscript>
         <div id="root">
             <div id="startup-shell">
-                <img src="%PUBLIC_URL%/icon-192.png" alt="" />
+                <img id="startup-icon" src="%PUBLIC_URL%/icon-192.png" alt="" />
+                <img id="startup-splash" src="%PUBLIC_URL%/splash.png" alt="" />
             </div>
+            <script>
+                setTimeout(function() {
+                    var icon = document.getElementById('startup-icon');
+                    var splash = document.getElementById('startup-splash');
+                    if (icon) icon.style.opacity = '0';
+                    if (splash) splash.style.opacity = '1';
+                }, 400);
+            </script>
         </div>
         <!--
       This HTML file is a template.
