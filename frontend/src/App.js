@@ -1224,16 +1224,19 @@ function App() {
   // Auto-load saved player on startup
   useEffect(() => {
     const savedId = localStorage.getItem('glimmerquest_player_id');
+    console.log('[localStorage] read player id on startup:', savedId);
     if (!savedId) return;
 
     axios.get(`${API}/player/${savedId}`)
       .then(res => {
+        console.log('[localStorage] auto-loaded player:', res.data.id);
         setPlayer(res.data);
         playerIdRef.current = res.data.id;
         setShowNameInput(false);
         loadDailyRewardStatus(res.data.id);
       })
       .catch(() => {
+        console.log('[localStorage] saved id not found on backend, clearing');
         localStorage.removeItem('glimmerquest_player_id');
       });
   }, []);
@@ -1279,6 +1282,7 @@ function App() {
       const res = await axios.post(url, payload);
       setPlayer(res.data);
       localStorage.setItem('glimmerquest_player_id', res.data.id);
+      console.log('[localStorage] wrote player id:', res.data.id);
       playerIdRef.current = res.data.id;
       setShowNameInput(false);
       loadDailyRewardStatus(res.data.id);
