@@ -1091,7 +1091,7 @@ const GameOverModal = ({
 };
 
 // Name Input Modal
-const NameInputModal = ({ onSubmit }) => {
+const NameInputModal = ({ onSubmit, isLoading }) => {
   const [name, setName] = useState('');
 
   const handleSubmit = (e) => {
@@ -1130,6 +1130,7 @@ const NameInputModal = ({ onSubmit }) => {
             className="btn-3d btn-3d-gold w-full text-lg"
             onPointerDown={() => console.log('[StartPlaying] button pressed, name:', JSON.stringify(name))}
             onClick={handleSubmit}
+            disabled={isLoading}
           >
             Start Playing!
           </button>
@@ -1182,6 +1183,7 @@ function App() {
   // Player state
   const [player, setPlayer] = useState(null);
   const [showNameInput, setShowNameInput] = useState(true);
+  const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
   
   // UI state
   const [showShop, setShowShop] = useState(false);
@@ -1250,6 +1252,7 @@ function App() {
   // Create or load player
   const handleCreatePlayer = async (name) => {
     console.log('[CreatePlayerAudit] entry A — name:', name, 'API:', API);
+    setIsCreatingPlayer(true);
     try {
       const url = `${API}/player/create`;
       const payload = { player_name: name };
@@ -1264,6 +1267,8 @@ function App() {
     } catch (err) {
       console.error('[CreatePlayerAudit] request failed', err?.message, err?.code, err?.response?.status);
       console.error('Error creating player:', err);
+    } finally {
+      setIsCreatingPlayer(false);
     }
   };
 
@@ -2128,7 +2133,7 @@ function App() {
       <div className="magical-bg" />
       
       {showNameInput && (
-        <NameInputModal onSubmit={handleCreatePlayer} />
+        <NameInputModal onSubmit={handleCreatePlayer} isLoading={isCreatingPlayer} />
       )}
       
       {!showNameInput && gameState === 'menu' && (
