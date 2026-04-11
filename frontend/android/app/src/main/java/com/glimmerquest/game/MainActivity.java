@@ -11,11 +11,11 @@ public class MainActivity extends BridgeActivity {
         super.onCreate(savedInstanceState);
 
         // Force window/decor background to brand color
-        getWindow().getDecorView().setBackgroundColor(0xFF0B0B13);
+        getWindow().getDecorView().setBackgroundColor(0xFFFF0000);
 
         // Force Capacitor WebView background to brand color
         if (getBridge() != null && getBridge().getWebView() != null) {
-            getBridge().getWebView().setBackgroundColor(Color.parseColor("#0B0B13"));
+            getBridge().getWebView().setBackgroundColor(Color.parseColor("#FF0000"));
         }
     }
 }
