@@ -2159,7 +2159,14 @@ function App() {
   return (
     <div className="min-h-screen relative">
       <div className="magical-bg" />
-      
+
+      {isBootstrappingPlayer && (
+        <div className="fixed inset-0 flex flex-col items-center justify-center z-50" style={{ backgroundColor: '#0B0B13' }}>
+          <p className="font-heading text-2xl font-bold text-white tracking-widest mb-2">Seraph Light Studios</p>
+          <p className="text-amber-400 text-lg font-bold">Glimmer Quest</p>
+        </div>
+      )}
+
       {!isBootstrappingPlayer && showNameInput && (
         <NameInputModal onSubmit={handleCreatePlayer} isLoading={isCreatingPlayer} />
       )}
