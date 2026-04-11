@@ -1221,6 +1221,23 @@ function App() {
     axios.get(`${API}/iap/packages`).then(res => setIapPackages(res.data)).catch(console.error);
   }, []);
 
+  // Auto-load saved player on startup
+  useEffect(() => {
+    const savedId = localStorage.getItem('glimmerquest_player_id');
+    if (!savedId) return;
+
+    axios.get(`${API}/player/${savedId}`)
+      .then(res => {
+        setPlayer(res.data);
+        playerIdRef.current = res.data.id;
+        setShowNameInput(false);
+        loadDailyRewardStatus(res.data.id);
+      })
+      .catch(() => {
+        localStorage.removeItem('glimmerquest_player_id');
+      });
+  }, []);
+
   // Check for payment result on URL
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -1261,6 +1278,7 @@ function App() {
       console.log('[CreatePlayerAudit] axios version', axios.VERSION, '| baseURL:', axios.defaults.baseURL || 'none');
       const res = await axios.post(url, payload);
       setPlayer(res.data);
+      localStorage.setItem('glimmerquest_player_id', res.data.id);
       playerIdRef.current = res.data.id;
       setShowNameInput(false);
       loadDailyRewardStatus(res.data.id);
