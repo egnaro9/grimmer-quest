@@ -1231,6 +1231,9 @@ function App() {
           if (res.data.payment_status === 'paid') {
             setShowPaymentResult('success');
             refreshPlayer();
+          } else {
+            refreshPlayer();
+            setShowPaymentResult('cancel');
           }
         })
         .catch(console.error)
