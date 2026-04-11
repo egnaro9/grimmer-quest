@@ -415,7 +415,7 @@ const MainMenu = ({ player, onStartGame, onOpenShop, onOpenLeaderboard, onOpenDa
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen flex flex-col items-center justify-center p-6 animate-fade-in">
       <div className="text-center mb-8">
         <h1 className="font-heading text-6xl lg:text-7xl font-black text-white drop-shadow-lg mb-2">
           GLIMMER <span className="text-amber-400">QUEST</span>
