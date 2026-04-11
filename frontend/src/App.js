@@ -1184,6 +1184,7 @@ function App() {
   const [player, setPlayer] = useState(null);
   const [showNameInput, setShowNameInput] = useState(true);
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
+  const [isBootstrappingPlayer, setIsBootstrappingPlayer] = useState(true);
   
   // UI state
   const [showShop, setShowShop] = useState(false);
@@ -1225,7 +1226,10 @@ function App() {
   useEffect(() => {
     const savedId = localStorage.getItem('glimmerquest_player_id');
     console.log('[localStorage] read player id on startup:', savedId);
-    if (!savedId) return;
+    if (!savedId) {
+      setIsBootstrappingPlayer(false);
+      return;
+    }
 
     axios.get(`${API}/player/${savedId}`)
       .then(res => {
@@ -1234,10 +1238,12 @@ function App() {
         playerIdRef.current = res.data.id;
         setShowNameInput(false);
         loadDailyRewardStatus(res.data.id);
+        setIsBootstrappingPlayer(false);
       })
       .catch(() => {
         console.log('[localStorage] saved id not found on backend, clearing');
         localStorage.removeItem('glimmerquest_player_id');
+        setIsBootstrappingPlayer(false);
       });
   }, []);
 
@@ -2154,7 +2160,7 @@ function App() {
     <div className="min-h-screen relative">
       <div className="magical-bg" />
       
-      {showNameInput && (
+      {!isBootstrappingPlayer && showNameInput && (
         <NameInputModal onSubmit={handleCreatePlayer} isLoading={isCreatingPlayer} />
       )}
       
