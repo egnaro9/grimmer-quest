@@ -1187,17 +1187,19 @@ function App() {
   const [isCreatingPlayer, setIsCreatingPlayer] = useState(false);
   const [isBootstrappingPlayer, setIsBootstrappingPlayer] = useState(true);
   const [showIntro, setShowIntro] = useState(true);
+  const [bootstrapReady, setBootstrapReady] = useState(false);
 
-  // Hold intro visible for at least 500ms after bootstrap completes, then hide splash
+  // Hold intro visible for at least 500ms after bootstrap resolves, then reveal app
   useEffect(() => {
-    if (!isBootstrappingPlayer) {
+    if (bootstrapReady) {
       const timer = setTimeout(() => {
         setShowIntro(false);
+        setIsBootstrappingPlayer(false);
         SplashScreen.hide();
       }, 500);
       return () => clearTimeout(timer);
     }
-  }, [isBootstrappingPlayer]);
+  }, [bootstrapReady]);
 
   // UI state
   const [showShop, setShowShop] = useState(false);
@@ -1240,7 +1242,7 @@ function App() {
     const savedId = localStorage.getItem('glimmerquest_player_id');
     console.log('[localStorage] read player id on startup:', savedId);
     if (!savedId) {
-      setIsBootstrappingPlayer(false);
+      setBootstrapReady(true);
       return;
     }
 
@@ -1251,12 +1253,12 @@ function App() {
         playerIdRef.current = res.data.id;
         setShowNameInput(false);
         loadDailyRewardStatus(res.data.id);
-        setIsBootstrappingPlayer(false);
+        setBootstrapReady(true);
       })
       .catch(() => {
         console.log('[localStorage] saved id not found on backend, clearing');
         localStorage.removeItem('glimmerquest_player_id');
-        setIsBootstrappingPlayer(false);
+        setBootstrapReady(true);
       });
   }, []);
 
